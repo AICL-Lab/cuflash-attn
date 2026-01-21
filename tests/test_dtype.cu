@@ -2,8 +2,10 @@
 // Feature: cuflash-attn, Property 6: 数据类型支持
 
 #include <gtest/gtest.h>
-#include <rapidcheck.h>
-#include <rapidcheck/gtest.h>
+#if CUFLASH_ENABLE_RAPIDCHECK
+ #include <rapidcheck.h>
+ #include <rapidcheck/gtest.h>
+#endif
 #include <vector>
 #include <cmath>
 #include <random>
@@ -107,6 +109,8 @@ TEST(DTypeTest, FP16Forward) {
     cudaFree(d_Q_f16); cudaFree(d_K_f16); cudaFree(d_V_f16); cudaFree(d_O_f16); cudaFree(d_L_f16);
 }
 
+
+#if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: FP16 results should be close to FP32
 // Feature: cuflash-attn, Property 6: 数据类型支持
 // Validates: Requirements 7.4
@@ -186,6 +190,8 @@ RC_GTEST_PROP(DTypeProperty, FP16ClosesToFP32, ()) {
     cudaFree(d_Q_f32); cudaFree(d_K_f32); cudaFree(d_V_f32); cudaFree(d_O_f32); cudaFree(d_L_f32);
     cudaFree(d_Q_f16); cudaFree(d_K_f16); cudaFree(d_V_f16); cudaFree(d_O_f16); cudaFree(d_L_f16);
 }
+
+#endif
 
 } // namespace test
 } // namespace cuflash

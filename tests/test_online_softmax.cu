@@ -2,8 +2,10 @@
 // Feature: cuflash-attn, Property 3: 在线 Softmax 等价性
 
 #include <gtest/gtest.h>
-#include <rapidcheck.h>
-#include <rapidcheck/gtest.h>
+#if CUFLASH_ENABLE_RAPIDCHECK
+ #include <rapidcheck.h>
+ #include <rapidcheck/gtest.h>
+#endif
 #include <vector>
 #include <cmath>
 #include <numeric>
@@ -133,6 +135,7 @@ TEST(OnlineSoftmaxTest, NumericalStability) {
     }
 }
 
+#if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: Online softmax should equal standard softmax for any input
 // Feature: cuflash-attn, Property 3: 在线 Softmax 等价性
 // Validates: Requirements 4.3
@@ -199,6 +202,8 @@ RC_GTEST_PROP(OnlineSoftmaxProperty, OutputRange, ()) {
         RC_ASSERT(!std::isinf(v));
     }
 }
+
+#endif
 
 } // namespace test
 } // namespace cuflash

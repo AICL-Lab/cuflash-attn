@@ -2,8 +2,10 @@
 // Feature: cuflash-attn, Property 5: 因果掩码正确性
 
 #include <gtest/gtest.h>
-#include <rapidcheck.h>
-#include <rapidcheck/gtest.h>
+#if CUFLASH_ENABLE_RAPIDCHECK
+ #include <rapidcheck.h>
+ #include <rapidcheck/gtest.h>
+#endif
 #include <vector>
 #include <cmath>
 #include <random>
@@ -88,6 +90,7 @@ TEST(CausalMaskTest, FutureIndependence) {
     cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
 }
 
+#if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: Causal mask correctness
 // Feature: cuflash-attn, Property 5: 因果掩码正确性
 // Validates: Requirements 5.1
@@ -156,6 +159,8 @@ RC_GTEST_PROP(CausalMaskProperty, FutureIndependenceProperty, ()) {
     
     cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
 }
+
+#endif
 
 } // namespace test
 } // namespace cuflash

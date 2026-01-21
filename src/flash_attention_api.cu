@@ -18,6 +18,13 @@ void launch_flash_attention_backward(
     float scale, bool causal, cudaStream_t stream
 );
 
+FlashAttentionError flash_attention_forward_fp16(
+    const half* Q, const half* K, const half* V,
+    half* O, half* L,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
+);
+
 const char* get_error_string(FlashAttentionError error) {
     switch (error) {
         case FlashAttentionError::SUCCESS:
@@ -147,7 +154,7 @@ FlashAttentionError flash_attention_backward(
 }
 
 
-// Half precision versions - placeholder for task 7.1
+// Half precision versions
 FlashAttentionError flash_attention_forward(
     const half* Q,
     const half* K,
@@ -162,8 +169,17 @@ FlashAttentionError flash_attention_forward(
     bool causal,
     cudaStream_t stream
 ) {
-    // Will be implemented in task 7.1
-    return FlashAttentionError::UNSUPPORTED_DTYPE;
+    FlashAttentionError err = validate_params(Q, K, V, O, L,
+        batch_size, num_heads, seq_len, head_dim);
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
+    }
+
+    return flash_attention_forward_fp16(
+        Q, K, V, O, L,
+        batch_size, num_heads, seq_len, head_dim,
+        scale, causal, stream
+    );
 }
 
 FlashAttentionError flash_attention_backward(

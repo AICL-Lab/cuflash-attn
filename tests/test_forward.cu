@@ -2,8 +2,10 @@
 // Feature: cuflash-attn, Property 1: 前向传播数值等价性
 
 #include <gtest/gtest.h>
-#include <rapidcheck.h>
-#include <rapidcheck/gtest.h>
+#if CUFLASH_ENABLE_RAPIDCHECK
+ #include <rapidcheck.h>
+ #include <rapidcheck/gtest.h>
+#endif
 #include <vector>
 #include <cmath>
 #include <random>
@@ -131,6 +133,7 @@ TEST(ForwardTest, BasicSmall) {
     cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
 }
 
+#if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: Forward pass numerical equivalence
 // Feature: cuflash-attn, Property 1: 前向传播数值等价性
 // Validates: Requirements 1.1, 1.2, 1.5, 7.5, 8.1
@@ -179,6 +182,8 @@ RC_GTEST_PROP(ForwardProperty, NumericalEquivalence, ()) {
     
     cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
 }
+
+#endif
 
 } // namespace test
 } // namespace cuflash

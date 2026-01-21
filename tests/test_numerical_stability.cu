@@ -2,8 +2,10 @@
 // Feature: cuflash-attn, Property 4: 数值稳定性
 
 #include <gtest/gtest.h>
-#include <rapidcheck.h>
-#include <rapidcheck/gtest.h>
+#if CUFLASH_ENABLE_RAPIDCHECK
+ #include <rapidcheck.h>
+ #include <rapidcheck/gtest.h>
+#endif
 #include <vector>
 #include <cmath>
 #include <random>
@@ -154,6 +156,7 @@ TEST(NumericalStabilityTest, MixedExtremeValues) {
 }
 
 
+#if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: No NaN or Inf for any valid input
 // Feature: cuflash-attn, Property 4: 数值稳定性
 // Validates: Requirements 4.4, 8.3
@@ -211,6 +214,8 @@ RC_GTEST_PROP(NumericalStabilityProperty, NoNaNOrInf, ()) {
     
     cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
 }
+
+#endif
 
 } // namespace test
 } // namespace cuflash

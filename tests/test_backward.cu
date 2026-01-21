@@ -2,8 +2,10 @@
 // Feature: cuflash-attn, Property 2: 反向传播梯度等价性
 
 #include <gtest/gtest.h>
-#include <rapidcheck.h>
-#include <rapidcheck/gtest.h>
+#if CUFLASH_ENABLE_RAPIDCHECK
+ #include <rapidcheck.h>
+ #include <rapidcheck/gtest.h>
+#endif
 #include <vector>
 #include <cmath>
 #include <random>
@@ -211,6 +213,7 @@ TEST(BackwardTest, BasicSmall) {
     cudaFree(d_dO); cudaFree(d_dQ); cudaFree(d_dK); cudaFree(d_dV);
 }
 
+#if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: Backward pass gradient equivalence
 // Feature: cuflash-attn, Property 2: 反向传播梯度等价性
 // Validates: Requirements 2.1, 2.3, 2.4, 8.2
@@ -274,6 +277,8 @@ RC_GTEST_PROP(BackwardProperty, GradientEquivalence, ()) {
     cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
     cudaFree(d_dO); cudaFree(d_dQ); cudaFree(d_dK); cudaFree(d_dV);
 }
+
+#endif
 
 } // namespace test
 } // namespace cuflash

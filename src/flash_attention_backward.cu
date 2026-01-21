@@ -57,7 +57,6 @@ __global__ void flash_attention_backward_kernel(
     const float* Q_ptr = Q + batch_head_idx * seq_len * HEAD_DIM;
     const float* K_ptr = K + batch_head_idx * seq_len * HEAD_DIM;
     const float* V_ptr = V + batch_head_idx * seq_len * HEAD_DIM;
-    const float* O_ptr = O + batch_head_idx * seq_len * HEAD_DIM;
     const float* L_ptr = L + batch_head_idx * seq_len;
     const float* dO_ptr = dO + batch_head_idx * seq_len * HEAD_DIM;
     const float* D_ptr = D + batch_head_idx * seq_len;
@@ -229,7 +228,7 @@ template __global__ void flash_attention_backward_kernel<64, 64, 128>(
     const float*, const float*, float*, float*, float*, int, float, bool);
 
 // Launch backward kernel
-void launch_flash_attention_backward(
+FlashAttentionError launch_flash_attention_backward(
     const float* Q, const float* K, const float* V,
     const float* O, const float* L, const float* dO,
     float* dQ, float* dK, float* dV,
@@ -242,11 +241,19 @@ void launch_flash_attention_backward(
     int batch_heads = batch_size * num_heads;
     
     // Allocate temporary D buffer
-    float* D;
-    cudaMalloc(&D, batch_heads * seq_len * sizeof(float));
+    float* D = nullptr;
+    cudaError_t err = cudaMalloc(&D, batch_heads * seq_len * sizeof(float));
+    if (err != cudaSuccess) {
+        return err == cudaErrorMemoryAllocation ? FlashAttentionError::OUT_OF_MEMORY
+                                                 : FlashAttentionError::CUDA_ERROR;
+    }
     
     // Initialize dQ to zero
-    cudaMemset(dQ, 0, batch_heads * seq_len * head_dim * sizeof(float));
+    err = cudaMemset(dQ, 0, batch_heads * seq_len * head_dim * sizeof(float));
+    if (err != cudaSuccess) {
+        cudaFree(D);
+        return FlashAttentionError::CUDA_ERROR;
+    }
     
     // Compute D = rowsum(dO * O)
     int d_blocks = (seq_len + 127) / 128;
@@ -258,6 +265,12 @@ void launch_flash_attention_backward(
         compute_D_kernel<128, 64><<<d_grid, 128, 0, stream>>>(dO, O, D, seq_len);
     } else if (head_dim == 128) {
         compute_D_kernel<128, 128><<<d_grid, 128, 0, stream>>>(dO, O, D, seq_len);
+    }
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        cudaFree(D);
+        return FlashAttentionError::CUDA_ERROR;
     }
     
     // Launch backward kernel
@@ -286,8 +299,15 @@ void launch_flash_attention_backward(
         flash_attention_backward_kernel<BLOCK_M, BLOCK_N, 128><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, dO, D, dQ, dK, dV, seq_len, scale, causal);
     }
-    
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        cudaFree(D);
+        return FlashAttentionError::CUDA_ERROR;
+    }
+
     cudaFree(D);
+    return FlashAttentionError::SUCCESS;
 }
 
 } // namespace cuflash
