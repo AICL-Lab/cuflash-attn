@@ -28,6 +28,14 @@ make -j$(nproc)
 ### Build Options
 
 - `BUILD_TESTS=ON/OFF`: Build test suite (default: ON)
+- `ENABLE_RAPIDCHECK=ON/OFF`: Enable RapidCheck property tests (default: OFF). Requires RapidCheck to be available.
+- `BUILD_SHARED_LIBS=ON/OFF`: Build shared library for Python ctypes (default: ON)
+
+If CMake cannot find CUDA, configure it explicitly:
+
+```bash
+cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+```
 
 ## Usage
 
@@ -68,11 +76,15 @@ cd build
 ctest --output-on-failure
 ```
 
+If GTest is not found, the test target will be skipped. Install GTest or configure with `-DBUILD_TESTS=OFF`.
+
 ### PyTorch Comparison Tests
 
 ```bash
 python tests/test_pytorch_comparison.py
 ```
+
+This script loads `build/libcuflash_attn.so`. Ensure you build shared libraries (`-DBUILD_SHARED_LIBS=ON`).
 
 
 ## Algorithm

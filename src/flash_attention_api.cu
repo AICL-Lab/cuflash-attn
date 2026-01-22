@@ -10,7 +10,7 @@ void launch_flash_attention_forward(
     float scale, bool causal, cudaStream_t stream
 );
 
-void launch_flash_attention_backward(
+FlashAttentionError launch_flash_attention_backward(
     const float* Q, const float* K, const float* V,
     const float* O, const float* L, const float* dO,
     float* dQ, float* dK, float* dV,
@@ -139,18 +139,13 @@ FlashAttentionError flash_attention_backward(
     }
     
     // Launch kernel
-    launch_flash_attention_backward(
+    FlashAttentionError launch_err = launch_flash_attention_backward(
         Q, K, V, O, L, dO, dQ, dK, dV,
         batch_size, num_heads, seq_len, head_dim,
         scale, causal, stream
     );
-    
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    
-    return FlashAttentionError::SUCCESS;
+
+    return launch_err;
 }
 
 

@@ -14,7 +14,8 @@ find_package(CUDAToolkit REQUIRED)
 
 # Options
 option(BUILD_TESTS "Build tests" ON)
-option(ENABLE_RAPIDCHECK "Enable RapidCheck property tests" ON)
+option(ENABLE_RAPIDCHECK "Enable RapidCheck property tests" OFF)
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
@@ -28,9 +29,10 @@ set(SOURCES
 )
 
 # Library
-add_library(cuflash_attn STATIC ${SOURCES})
+add_library(cuflash_attn ${SOURCES})
 target_link_libraries(cuflash_attn CUDA::cudart)
 target_include_directories(cuflash_attn PUBLIC ${CMAKE_SOURCE_DIR}/include)
+set_target_properties(cuflash_attn PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Set CUDA flags
 target_compile_options(cuflash_attn PRIVATE

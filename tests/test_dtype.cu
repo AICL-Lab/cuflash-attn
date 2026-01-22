@@ -14,15 +14,6 @@
 #include "flash_attention.h"
 
 namespace cuflash {
-
-// Forward declaration for FP16 API
-FlashAttentionError flash_attention_forward_fp16(
-    const half* Q, const half* K, const half* V,
-    half* O, half* L,
-    int batch_size, int num_heads, int seq_len, int head_dim,
-    float scale, bool causal, cudaStream_t stream
-);
-
 namespace test {
 
 // Test FP16 forward pass produces reasonable results
@@ -87,7 +78,7 @@ TEST(DTypeTest, FP16Forward) {
     cudaMemcpy(d_K_f16, h_K_f16.data(), qkv_size * sizeof(half), cudaMemcpyHostToDevice);
     cudaMemcpy(d_V_f16, h_V_f16.data(), qkv_size * sizeof(half), cudaMemcpyHostToDevice);
     
-    err = flash_attention_forward_fp16(d_Q_f16, d_K_f16, d_V_f16, d_O_f16, d_L_f16,
+    err = flash_attention_forward(d_Q_f16, d_K_f16, d_V_f16, d_O_f16, d_L_f16,
         batch_size, num_heads, seq_len, head_dim, scale, false, 0);
     ASSERT_EQ(err, FlashAttentionError::SUCCESS);
     cudaDeviceSynchronize();
@@ -171,7 +162,7 @@ RC_GTEST_PROP(DTypeProperty, FP16ClosesToFP32, ()) {
     cudaMemcpy(d_K_f16, h_K_f16.data(), qkv_size * sizeof(half), cudaMemcpyHostToDevice);
     cudaMemcpy(d_V_f16, h_V_f16.data(), qkv_size * sizeof(half), cudaMemcpyHostToDevice);
     
-    err = flash_attention_forward_fp16(d_Q_f16, d_K_f16, d_V_f16, d_O_f16, d_L_f16,
+    err = flash_attention_forward(d_Q_f16, d_K_f16, d_V_f16, d_O_f16, d_L_f16,
         batch_size, num_heads, seq_len, head_dim, scale, false, 0);
     RC_ASSERT(err == FlashAttentionError::SUCCESS);
     cudaDeviceSynchronize();
