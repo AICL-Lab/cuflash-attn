@@ -7,7 +7,7 @@ set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # CUDA architecture (adjust based on your GPU)
-set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
+set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86 89 90)
 
 # Find CUDA
 find_package(CUDAToolkit REQUIRED)
@@ -38,6 +38,7 @@ set_target_properties(cuflash_attn PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(cuflash_attn PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:
         --expt-relaxed-constexpr
+        --use_fast_math
         -O3
     >
 )

@@ -16,7 +16,7 @@ __device__ __forceinline__ half float_to_half(float f) {
 
 // FP16 Forward kernel - converts to FP32 internally for computation
 template<int BLOCK_M, int BLOCK_N, int HEAD_DIM>
-__global__ void flash_attention_forward_fp16_kernel(
+__global__ void __launch_bounds__(128) flash_attention_forward_fp16_kernel(
     const half* __restrict__ Q,
     const half* __restrict__ K,
     const half* __restrict__ V,

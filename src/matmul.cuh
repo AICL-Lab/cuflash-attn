@@ -15,6 +15,7 @@ struct TilingConfig {
 
 // Load a tile from global memory to shared memory
 // Handles boundary conditions when seq_len is not divisible by block size
+// Uses float4 vectorized loads when alignment permits
 template<int BLOCK_ROWS, int BLOCK_COLS>
 __device__ __forceinline__ void load_tile_to_shared(
     const float* __restrict__ src,
@@ -29,21 +30,45 @@ __device__ __forceinline__ void load_tile_to_shared(
     const int num_threads = blockDim.x;
     const int total_elements = BLOCK_ROWS * BLOCK_COLS;
     
-    for (int i = tid; i < total_elements; i += num_threads) {
-        int local_row = i / BLOCK_COLS;
-        int local_col = i % BLOCK_COLS;
-        int global_row = row_start + local_row;
-        int global_col = col_start + local_col;
-        
-        if (global_row < max_rows && global_col < max_cols) {
-            dst[local_row * BLOCK_COLS + local_col] = src[global_row * src_stride + global_col];
-        } else {
-            dst[local_row * BLOCK_COLS + local_col] = 0.0f;
+    // Use float4 vectorized loads when BLOCK_COLS is divisible by 4 and col_start is aligned
+    if constexpr (BLOCK_COLS % 4 == 0) {
+        const int total_vec = total_elements / 4;
+        for (int i = tid; i < total_vec; i += num_threads) {
+            int elem_idx = i * 4;
+            int local_row = elem_idx / BLOCK_COLS;
+            int local_col = elem_idx % BLOCK_COLS;
+            int global_row = row_start + local_row;
+            int global_col = col_start + local_col;
+            
+            float4 val = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+            if (global_row < max_rows && global_col + 3 < max_cols) {
+                val = *reinterpret_cast<const float4*>(&src[global_row * src_stride + global_col]);
+            } else if (global_row < max_rows) {
+                if (global_col < max_cols) val.x = src[global_row * src_stride + global_col];
+                if (global_col + 1 < max_cols) val.y = src[global_row * src_stride + global_col + 1];
+                if (global_col + 2 < max_cols) val.z = src[global_row * src_stride + global_col + 2];
+                if (global_col + 3 < max_cols) val.w = src[global_row * src_stride + global_col + 3];
+            }
+            *reinterpret_cast<float4*>(&dst[local_row * BLOCK_COLS + local_col]) = val;
+        }
+    } else {
+        for (int i = tid; i < total_elements; i += num_threads) {
+            int local_row = i / BLOCK_COLS;
+            int local_col = i % BLOCK_COLS;
+            int global_row = row_start + local_row;
+            int global_col = col_start + local_col;
+            
+            if (global_row < max_rows && global_col < max_cols) {
+                dst[local_row * BLOCK_COLS + local_col] = src[global_row * src_stride + global_col];
+            } else {
+                dst[local_row * BLOCK_COLS + local_col] = 0.0f;
+            }
         }
     }
 }
 
 // Store a tile from shared memory to global memory
+// Uses float4 vectorized stores when alignment permits
 template<int BLOCK_ROWS, int BLOCK_COLS>
 __device__ __forceinline__ void store_tile_from_shared(
     const float* __restrict__ src,
@@ -58,14 +83,35 @@ __device__ __forceinline__ void store_tile_from_shared(
     const int num_threads = blockDim.x;
     const int total_elements = BLOCK_ROWS * BLOCK_COLS;
     
-    for (int i = tid; i < total_elements; i += num_threads) {
-        int local_row = i / BLOCK_COLS;
-        int local_col = i % BLOCK_COLS;
-        int global_row = row_start + local_row;
-        int global_col = col_start + local_col;
-        
-        if (global_row < max_rows && global_col < max_cols) {
-            dst[global_row * dst_stride + global_col] = src[local_row * BLOCK_COLS + local_col];
+    if constexpr (BLOCK_COLS % 4 == 0) {
+        const int total_vec = total_elements / 4;
+        for (int i = tid; i < total_vec; i += num_threads) {
+            int elem_idx = i * 4;
+            int local_row = elem_idx / BLOCK_COLS;
+            int local_col = elem_idx % BLOCK_COLS;
+            int global_row = row_start + local_row;
+            int global_col = col_start + local_col;
+            
+            if (global_row < max_rows && global_col + 3 < max_cols) {
+                float4 val = *reinterpret_cast<const float4*>(&src[local_row * BLOCK_COLS + local_col]);
+                *reinterpret_cast<float4*>(&dst[global_row * dst_stride + global_col]) = val;
+            } else if (global_row < max_rows) {
+                if (global_col < max_cols) dst[global_row * dst_stride + global_col] = src[local_row * BLOCK_COLS + local_col];
+                if (global_col + 1 < max_cols) dst[global_row * dst_stride + global_col + 1] = src[local_row * BLOCK_COLS + local_col + 1];
+                if (global_col + 2 < max_cols) dst[global_row * dst_stride + global_col + 2] = src[local_row * BLOCK_COLS + local_col + 2];
+                if (global_col + 3 < max_cols) dst[global_row * dst_stride + global_col + 3] = src[local_row * BLOCK_COLS + local_col + 3];
+            }
+        }
+    } else {
+        for (int i = tid; i < total_elements; i += num_threads) {
+            int local_row = i / BLOCK_COLS;
+            int local_col = i % BLOCK_COLS;
+            int global_row = row_start + local_row;
+            int global_col = col_start + local_col;
+            
+            if (global_row < max_rows && global_col < max_cols) {
+                dst[global_row * dst_stride + global_col] = src[local_row * BLOCK_COLS + local_col];
+            }
         }
     }
 }

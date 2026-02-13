@@ -12,7 +12,7 @@ namespace cuflash {
 // BLOCK_N: number of K/V rows per block  
 // HEAD_DIM: dimension of each head
 template<int BLOCK_M, int BLOCK_N, int HEAD_DIM>
-__global__ void flash_attention_forward_kernel(
+__global__ void __launch_bounds__(128) flash_attention_forward_kernel(
     const float* __restrict__ Q,      // [batch*heads, seq_len, head_dim]
     const float* __restrict__ K,      // [batch*heads, seq_len, head_dim]
     const float* __restrict__ V,      // [batch*heads, seq_len, head_dim]

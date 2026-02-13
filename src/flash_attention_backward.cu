@@ -10,7 +10,7 @@ namespace cuflash {
 // Compute D = rowsum(dO * O) for each row
 // This is needed for the backward pass gradient computation
 template<int BLOCK_SIZE, int HEAD_DIM>
-__global__ void compute_D_kernel(
+__global__ void __launch_bounds__(128) compute_D_kernel(
     const float* __restrict__ dO,     // [batch*heads, seq_len, head_dim]
     const float* __restrict__ O,      // [batch*heads, seq_len, head_dim]
     float* __restrict__ D,            // [batch*heads, seq_len]
@@ -35,7 +35,7 @@ __global__ void compute_D_kernel(
 
 // Backward kernel template
 template<int BLOCK_M, int BLOCK_N, int HEAD_DIM>
-__global__ void flash_attention_backward_kernel(
+__global__ void __launch_bounds__(128) flash_attention_backward_kernel(
     const float* __restrict__ Q,      // [batch*heads, seq_len, head_dim]
     const float* __restrict__ K,      // [batch*heads, seq_len, head_dim]
     const float* __restrict__ V,      // [batch*heads, seq_len, head_dim]
