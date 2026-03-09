@@ -99,8 +99,9 @@ __global__ void __launch_bounds__(128) flash_attention_backward_kernel(
     for (int q_block = 0; q_block < num_q_blocks; q_block++) {
         int q_start = q_block * BLOCK_M;
         
-        // Causal: skip if this Q block doesn't attend to this K/V block
-        if (causal && q_start < kv_start) {
+        // Causal: skip if no Q row in this block attends to any K row in this block.
+        // Q[q] attends to K[k] only if k <= q; skip when max_q < min_k.
+        if (causal && q_start + BLOCK_M - 1 < kv_start) {
             continue;
         }
         
@@ -248,8 +249,8 @@ FlashAttentionError launch_flash_attention_backward(
                                                  : FlashAttentionError::CUDA_ERROR;
     }
     
-    // Initialize dQ to zero
-    err = cudaMemset(dQ, 0, batch_heads * seq_len * head_dim * sizeof(float));
+    // Initialize dQ to zero (async to maintain stream ordering)
+    err = cudaMemsetAsync(dQ, 0, batch_heads * seq_len * head_dim * sizeof(float), stream);
     if (err != cudaSuccess) {
         cudaFree(D);
         return FlashAttentionError::CUDA_ERROR;
@@ -289,24 +290,45 @@ FlashAttentionError launch_flash_attention_backward(
                         BLOCK_M +                 // L_tile
                         BLOCK_M) * sizeof(float); // D_tile
     
+    // Request extended shared memory if needed (default limit is 48KB)
+    auto set_smem = [smem_size](const void* kernel_func) {
+        if (smem_size > 48 * 1024) {
+            cudaFuncSetAttribute(kernel_func,
+                cudaFuncAttributeMaxDynamicSharedMemorySize,
+                static_cast<int>(smem_size));
+        }
+    };
+
     if (head_dim == 32) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_backward_kernel<BLOCK_M, BLOCK_N, 32>));
         flash_attention_backward_kernel<BLOCK_M, BLOCK_N, 32><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, dO, D, dQ, dK, dV, seq_len, scale, causal);
     } else if (head_dim == 64) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_backward_kernel<BLOCK_M, BLOCK_N, 64>));
         flash_attention_backward_kernel<BLOCK_M, BLOCK_N, 64><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, dO, D, dQ, dK, dV, seq_len, scale, causal);
     } else if (head_dim == 128) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_backward_kernel<BLOCK_M, BLOCK_N, 128>));
         flash_attention_backward_kernel<BLOCK_M, BLOCK_N, 128><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, dO, D, dQ, dK, dV, seq_len, scale, causal);
     }
 
     err = cudaGetLastError();
     if (err != cudaSuccess) {
+        cudaStreamSynchronize(stream);
         cudaFree(D);
         return FlashAttentionError::CUDA_ERROR;
     }
 
+    // Synchronize before freeing temporary buffer to prevent use-after-free
+    err = cudaStreamSynchronize(stream);
     cudaFree(D);
+    if (err != cudaSuccess) {
+        return FlashAttentionError::CUDA_ERROR;
+    }
     return FlashAttentionError::SUCCESS;
 }
 

@@ -16,9 +16,7 @@ find_package(CUDAToolkit REQUIRED)
 option(BUILD_TESTS "Build tests" ON)
 option(ENABLE_RAPIDCHECK "Enable RapidCheck property tests" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
-
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR}/include)
+option(ENABLE_FAST_MATH "Enable --use_fast_math (faster but less precise)" OFF)
 
 # Source files
 set(SOURCES
@@ -31,71 +29,80 @@ set(SOURCES
 # Library
 add_library(cuflash_attn ${SOURCES})
 target_link_libraries(cuflash_attn CUDA::cudart)
-target_include_directories(cuflash_attn PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(cuflash_attn PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 set_target_properties(cuflash_attn PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Set CUDA flags
+# Note: Optimization level (-O2/-O3) is controlled by CMAKE_BUILD_TYPE.
 target_compile_options(cuflash_attn PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:
         --expt-relaxed-constexpr
-        --use_fast_math
-        -O3
+        $<$<BOOL:${ENABLE_FAST_MATH}>:--use_fast_math>
     >
 )
 
 # Tests
 if(BUILD_TESTS)
-    find_package(GTest QUIET)
+    include(FetchContent)
 
-    if(NOT GTest_FOUND)
-        message(WARNING "GTest not found. Tests will be skipped. Install GTest or configure with -DBUILD_TESTS=OFF.")
-    else()
-        enable_testing()
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.14.0
+        GIT_SHALLOW    TRUE
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
 
-        # Fetch rapidcheck
-        if(ENABLE_RAPIDCHECK)
-            include(FetchContent)
-            FetchContent_Declare(
-                rapidcheck
-                GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
-                GIT_TAG master
-            )
-            FetchContent_MakeAvailable(rapidcheck)
-        endif()
-
-        # Test executable
-        add_executable(cuflash_attn_tests
-            tests/test_online_softmax.cu
-            tests/test_forward.cu
-            tests/test_backward.cu
-            tests/test_causal_mask.cu
-            tests/test_error_handling.cu
-            tests/test_dtype.cu
-            tests/test_numerical_stability.cu
+    if(ENABLE_RAPIDCHECK)
+        FetchContent_Declare(
+            rapidcheck
+            GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
+            GIT_TAG        ff6af6fc683159deb51c543b065eba14dfcf329b
+            GIT_SHALLOW    FALSE
         )
-
-        target_link_libraries(cuflash_attn_tests
-            cuflash_attn
-            GTest::gtest_main
-            CUDA::cudart
-        )
-
-        if(ENABLE_RAPIDCHECK)
-            target_link_libraries(cuflash_attn_tests rapidcheck)
-            target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=1)
-        else()
-            target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=0)
-        endif()
-
-        target_compile_options(cuflash_attn_tests PRIVATE
-            $<$<COMPILE_LANGUAGE:CUDA>:
-                --expt-relaxed-constexpr
-            >
-        )
-
-        include(GoogleTest)
-        gtest_discover_tests(cuflash_attn_tests)
+        FetchContent_MakeAvailable(rapidcheck)
     endif()
+
+    enable_testing()
+
+    # Test executable
+    add_executable(cuflash_attn_tests
+        tests/test_online_softmax.cu
+        tests/test_forward.cu
+        tests/test_backward.cu
+        tests/test_causal_mask.cu
+        tests/test_error_handling.cu
+        tests/test_dtype.cu
+        tests/test_numerical_stability.cu
+    )
+
+    target_link_libraries(cuflash_attn_tests
+        cuflash_attn
+        gtest_main
+        CUDA::cudart
+    )
+
+    if(ENABLE_RAPIDCHECK)
+        target_link_libraries(cuflash_attn_tests rapidcheck)
+        target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=1)
+    else()
+        target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=0)
+    endif()
+
+    target_compile_options(cuflash_attn_tests PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:
+            --expt-relaxed-constexpr
+        >
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(cuflash_attn_tests)
 endif()
 
 # Example executable

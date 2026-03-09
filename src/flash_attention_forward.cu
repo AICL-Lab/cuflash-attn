@@ -199,13 +199,28 @@ void launch_flash_attention_forward(
                         BLOCK_M +                 // m_tile
                         BLOCK_M) * sizeof(float); // l_tile
     
+    // Request extended shared memory if needed (default limit is 48KB)
+    auto set_smem = [smem_size](const void* kernel_func) {
+        if (smem_size > 48 * 1024) {
+            cudaFuncSetAttribute(kernel_func,
+                cudaFuncAttributeMaxDynamicSharedMemorySize,
+                static_cast<int>(smem_size));
+        }
+    };
+
     if (head_dim == 32) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 32>));
         flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 32><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 64) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 64>));
         flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 64><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 128) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 128>));
         flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 128><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     }

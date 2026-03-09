@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <random>
 #include <cuda_runtime.h>
 #include "flash_attention.h"
 
@@ -35,10 +36,12 @@ int main() {
     std::vector<float> h_L(l_size);
     
     // Initialize with random values
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<float> dist(-0.5f, 0.5f);
     for (size_t i = 0; i < qkv_size; i++) {
-        h_Q[i] = static_cast<float>(rand()) / RAND_MAX - 0.5f;
-        h_K[i] = static_cast<float>(rand()) / RAND_MAX - 0.5f;
-        h_V[i] = static_cast<float>(rand()) / RAND_MAX - 0.5f;
+        h_Q[i] = dist(gen);
+        h_K[i] = dist(gen);
+        h_V[i] = dist(gen);
     }
     
     // Allocate device memory

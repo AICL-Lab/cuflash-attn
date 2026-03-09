@@ -48,9 +48,9 @@ const char* get_error_string(FlashAttentionError error) {
     }
 }
 
-// Validate input parameters
+// Validate input parameters (all pointers are const since we only check for null)
 static FlashAttentionError validate_params(
-    const void* Q, const void* K, const void* V, void* O, void* L,
+    const void* Q, const void* K, const void* V, const void* O, const void* L,
     int batch_size, int num_heads, int seq_len, int head_dim
 ) {
     // Check null pointers
@@ -69,6 +69,20 @@ static FlashAttentionError validate_params(
     }
     
     return FlashAttentionError::SUCCESS;
+}
+
+// Validate backward-specific parameters (Q,K,V,O,L plus dO,dQ,dK,dV)
+static FlashAttentionError validate_params_bwd(
+    const void* Q, const void* K, const void* V,
+    const void* O, const void* L, const void* dO,
+    void* dQ, void* dK, void* dV,
+    int batch_size, int num_heads, int seq_len, int head_dim
+) {
+    if (!dO || !dQ || !dK || !dV) {
+        return FlashAttentionError::NULL_POINTER;
+    }
+    return validate_params(Q, K, V, O, L,
+        batch_size, num_heads, seq_len, head_dim);
 }
 
 FlashAttentionError flash_attention_forward(
@@ -125,17 +139,11 @@ FlashAttentionError flash_attention_backward(
     bool causal,
     cudaStream_t stream
 ) {
-    // Validate parameters
-    if (!Q || !K || !V || !O || !L || !dO || !dQ || !dK || !dV) {
-        return FlashAttentionError::NULL_POINTER;
-    }
-    
-    if (batch_size <= 0 || num_heads <= 0 || seq_len <= 0 || head_dim <= 0) {
-        return FlashAttentionError::INVALID_DIMENSION;
-    }
-    
-    if (head_dim != 32 && head_dim != 64 && head_dim != 128) {
-        return FlashAttentionError::UNSUPPORTED_HEAD_DIM;
+    FlashAttentionError err = validate_params_bwd(
+        Q, K, V, O, L, dO, dQ, dK, dV,
+        batch_size, num_heads, seq_len, head_dim);
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
     }
     
     // Launch kernel

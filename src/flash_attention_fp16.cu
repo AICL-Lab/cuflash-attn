@@ -209,35 +209,40 @@ void launch_flash_attention_forward_fp16(
                         BLOCK_M +
                         BLOCK_M) * sizeof(float);
     
+    // Request extended shared memory if needed (default limit is 48KB)
+    auto set_smem = [smem_size](const void* kernel_func) {
+        if (smem_size > 48 * 1024) {
+            cudaFuncSetAttribute(kernel_func,
+                cudaFuncAttributeMaxDynamicSharedMemorySize,
+                static_cast<int>(smem_size));
+        }
+    };
+
     if (head_dim == 32) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 32>));
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 32><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 64) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 64>));
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 64><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 128) {
+        set_smem(reinterpret_cast<const void*>(
+            flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 128>));
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 128><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     }
 }
 
-// Update API to support FP16
+// Internal FP16 forward entry point (validation already done by API layer)
 FlashAttentionError flash_attention_forward_fp16(
     const half* Q, const half* K, const half* V,
     half* O, half* L,
     int batch_size, int num_heads, int seq_len, int head_dim,
     float scale, bool causal, cudaStream_t stream
 ) {
-    if (!Q || !K || !V || !O || !L) {
-        return FlashAttentionError::NULL_POINTER;
-    }
-    if (batch_size <= 0 || num_heads <= 0 || seq_len <= 0 || head_dim <= 0) {
-        return FlashAttentionError::INVALID_DIMENSION;
-    }
-    if (head_dim != 32 && head_dim != 64 && head_dim != 128) {
-        return FlashAttentionError::UNSUPPORTED_HEAD_DIM;
-    }
-    
     launch_flash_attention_forward_fp16(Q, K, V, O, L,
         batch_size, num_heads, seq_len, head_dim, scale, causal, stream);
     

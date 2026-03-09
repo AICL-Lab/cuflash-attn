@@ -19,17 +19,31 @@ A high-performance FlashAttention implementation in CUDA C++ from scratch.
 
 ## Building
 
+### Using CMake Presets (recommended)
+
+```bash
+cmake --preset default      # Debug build with tests
+cmake --build --preset default
+ctest --preset default
+
+cmake --preset release      # Optimized build
+cmake --build --preset release
+```
+
+### Manual build
+
 ```bash
 mkdir build && cd build
-cmake ..
-make -j$(nproc)
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j$(nproc)
 ```
 
 ### Build Options
 
 - `BUILD_TESTS=ON/OFF`: Build test suite (default: ON)
-- `ENABLE_RAPIDCHECK=ON/OFF`: Enable RapidCheck property tests (default: OFF). Requires RapidCheck to be available.
+- `ENABLE_RAPIDCHECK=ON/OFF`: Enable RapidCheck property tests (default: OFF)
 - `BUILD_SHARED_LIBS=ON/OFF`: Build shared library for Python ctypes (default: ON)
+- `ENABLE_FAST_MATH=ON/OFF`: Enable `--use_fast_math` for CUDA (faster but less precise, default: OFF)
 
 If CMake cannot find CUDA, configure it explicitly:
 
@@ -76,7 +90,7 @@ cd build
 ctest --output-on-failure
 ```
 
-If GTest is not found, the test target will be skipped. Install GTest or configure with `-DBUILD_TESTS=OFF`.
+GoogleTest is automatically fetched via CMake FetchContent — no manual installation required.
 
 ### PyTorch Comparison Tests
 
@@ -124,6 +138,7 @@ This implementation follows the FlashAttention algorithm:
 ├── examples/
 │   └── basic_usage.cu             # Usage example
 ├── CMakeLists.txt
+├── CMakePresets.json           # Build presets
 └── README.md
 ```
 
@@ -140,9 +155,12 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 
 - `SUCCESS`: Operation completed successfully
 - `INVALID_DIMENSION`: Dimension parameters are invalid
+- `DIMENSION_MISMATCH`: Q, K, V dimensions do not match
 - `NULL_POINTER`: Input or output pointer is null
-- `UNSUPPORTED_HEAD_DIM`: head_dim must be 32, 64, or 128
 - `CUDA_ERROR`: CUDA runtime error occurred
+- `OUT_OF_MEMORY`: Insufficient GPU memory
+- `UNSUPPORTED_HEAD_DIM`: head_dim must be 32, 64, or 128
+- `UNSUPPORTED_DTYPE`: Data type not supported for this operation
 
 ## License
 
