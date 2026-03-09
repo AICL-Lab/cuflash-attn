@@ -2,7 +2,7 @@
 
 [![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/docs.yml?branch=main&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
 
-简体中文 | [English](README.md)
+[English](README.md) | 简体中文
 
 从零实现的高性能 CUDA C++ FlashAttention。
 
