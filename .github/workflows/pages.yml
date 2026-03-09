@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "README.md"
+      - "README.zh-CN.md"
       - "SUMMARY.md"
+      - "docs/**"
       - "changelog/**"
       - "book.json"
-      - ".github/workflows/docs.yml"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,13 +27,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            README.md
+            README.zh-CN.md
+            SUMMARY.md
+            book.json
+            docs
+            changelog
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+        continue-on-error: true
 
-      - name: Install honkit
-        run: npm install honkit
+      - name: Install honkit and plugins
+        run: npm install honkit gitbook-plugin-search-pro gitbook-plugin-highlight gitbook-plugin-copy-code-button gitbook-plugin-expandable-chapters gitbook-plugin-back-to-top-button
 
       - name: Build docs
         run: npx honkit build . _site

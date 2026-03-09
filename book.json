@@ -1,7 +1,7 @@
 {
   "title": "CuFlash-Attn",
-  "description": "A high-performance FlashAttention implementation in CUDA C++ from scratch",
-  "language": "en",
+  "description": "从零实现的高性能 CUDA C++ FlashAttention — 算法详解、API 参考与构建指南",
+  "language": "zh-hans",
   "gitbook": ">=3.2.0",
   "links": {
     "sidebar": {
@@ -10,8 +10,17 @@
   },
   "plugins": [
     "-sharing",
-    "-fontsettings",
-    "theme-default"
+    "-lunr",
+    "-search",
+    "search-pro",
+    "highlight",
+    "copy-code-button",
+    "expandable-chapters",
+    "back-to-top-button"
   ],
-  "pluginsConfig": {}
+  "pluginsConfig": {
+    "search-pro": {
+      "maxSuggestions": 8
+    }
+  }
 }

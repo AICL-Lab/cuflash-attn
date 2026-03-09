@@ -2,12 +2,14 @@
 
 * [CuFlash-Attn](README.md)
 
-## API & Usage
+## 文档
 
-* [C++ API](README.md#usage)
-* [Error Handling](README.md#error-handling)
-* [Building](README.md#building)
+* [算法详解](docs/algorithm.md)
+* [API 参考](docs/api.md)
+* [构建指南](docs/building.md)
 
 ## Changelog
 
-* [v2026-02-13 Optimization](changelog/2026-02-13_optimization.md)
+* [2026-03-10 GitHub Pages 优化](changelog/2026-03-10_pages-optimization.md)
+* [2026-03-09 Workflow 优化](changelog/2026-03-09_workflow-optimization.md)
+* [2026-02-13 性能优化与 Bug 修复](changelog/2026-02-13_optimization.md)
