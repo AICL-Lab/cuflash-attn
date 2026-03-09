@@ -40,6 +40,10 @@ __pycache__/
 *.swp
 *.swo
 
+# Documentation build
+_site/
+_book/
+
 # OS
 .DS_Store
 Thumbs.db

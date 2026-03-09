@@ -1,0 +1,17 @@
+{
+  "title": "CuFlash-Attn",
+  "description": "A high-performance FlashAttention implementation in CUDA C++ from scratch",
+  "language": "en",
+  "gitbook": ">=3.2.0",
+  "links": {
+    "sidebar": {
+      "GitHub": "https://github.com/LessUp/cuflash-attn"
+    }
+  },
+  "plugins": [
+    "-sharing",
+    "-fontsettings",
+    "theme-default"
+  ],
+  "pluginsConfig": {}
+}
