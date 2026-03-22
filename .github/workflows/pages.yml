@@ -2,7 +2,7 @@ name: Deploy Docs
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
     paths:
       - "README.md"
       - "README.zh-CN.md"
