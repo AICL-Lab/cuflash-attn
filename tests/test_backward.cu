@@ -213,6 +213,70 @@ TEST(BackwardTest, BasicSmall) {
     cudaFree(d_dO); cudaFree(d_dQ); cudaFree(d_dK); cudaFree(d_dV);
 }
 
+TEST(BackwardTest, CausalMultiHeadHeadDim128) {
+    const int batch_size = 1;
+    const int num_heads = 2;
+    const int seq_len = 16;
+    const int head_dim = 128;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+
+    size_t qkv_size = batch_size * num_heads * seq_len * head_dim;
+    size_t l_size = batch_size * num_heads * seq_len;
+
+    std::mt19937 gen(7);
+    std::uniform_real_distribution<float> dist(-0.25f, 0.25f);
+
+    std::vector<float> h_Q(qkv_size), h_K(qkv_size), h_V(qkv_size), h_dO(qkv_size);
+    for (size_t i = 0; i < qkv_size; i++) {
+        h_Q[i] = dist(gen);
+        h_K[i] = dist(gen);
+        h_V[i] = dist(gen);
+        h_dO[i] = dist(gen);
+    }
+
+    std::vector<float> ref_dQ(qkv_size), ref_dK(qkv_size), ref_dV(qkv_size);
+    reference_attention_backward(h_Q, h_K, h_V, h_dO, ref_dQ, ref_dK, ref_dV,
+        batch_size, num_heads, seq_len, head_dim, scale, true);
+
+    float *d_Q, *d_K, *d_V, *d_O, *d_L, *d_dO, *d_dQ, *d_dK, *d_dV;
+    cudaMalloc(&d_Q, qkv_size * sizeof(float));
+    cudaMalloc(&d_K, qkv_size * sizeof(float));
+    cudaMalloc(&d_V, qkv_size * sizeof(float));
+    cudaMalloc(&d_O, qkv_size * sizeof(float));
+    cudaMalloc(&d_L, l_size * sizeof(float));
+    cudaMalloc(&d_dO, qkv_size * sizeof(float));
+    cudaMalloc(&d_dQ, qkv_size * sizeof(float));
+    cudaMalloc(&d_dK, qkv_size * sizeof(float));
+    cudaMalloc(&d_dV, qkv_size * sizeof(float));
+
+    cudaMemcpy(d_Q, h_Q.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_K, h_K.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_V, h_V.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_dO, h_dO.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+
+    auto err = flash_attention_forward(d_Q, d_K, d_V, d_O, d_L,
+        batch_size, num_heads, seq_len, head_dim, scale, true, 0);
+    ASSERT_EQ(err, FlashAttentionError::SUCCESS);
+    cudaDeviceSynchronize();
+
+    err = flash_attention_backward(d_Q, d_K, d_V, d_O, d_L, d_dO, d_dQ, d_dK, d_dV,
+        batch_size, num_heads, seq_len, head_dim, scale, true, 0);
+    ASSERT_EQ(err, FlashAttentionError::SUCCESS);
+    cudaDeviceSynchronize();
+
+    std::vector<float> h_dQ(qkv_size), h_dK(qkv_size), h_dV(qkv_size);
+    cudaMemcpy(h_dQ.data(), d_dQ, qkv_size * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_dK.data(), d_dK, qkv_size * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_dV.data(), d_dV, qkv_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    EXPECT_LT(max_abs_diff(h_dQ, ref_dQ), 2e-3f);
+    EXPECT_LT(max_abs_diff(h_dK, ref_dK), 2e-3f);
+    EXPECT_LT(max_abs_diff(h_dV, ref_dV), 2e-3f);
+
+    cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
+    cudaFree(d_dO); cudaFree(d_dQ); cudaFree(d_dK); cudaFree(d_dV);
+}
+
 #if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: Backward pass gradient equivalence
 // Feature: cuflash-attn, Property 2: 反向传播梯度等价性

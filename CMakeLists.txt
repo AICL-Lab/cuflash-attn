@@ -24,6 +24,7 @@ set(SOURCES
     src/flash_attention_forward.cu
     src/flash_attention_backward.cu
     src/flash_attention_fp16.cu
+    src/cuflash_ctypes_api.cu
 )
 
 # Library

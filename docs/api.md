@@ -98,6 +98,33 @@ cuflash::FlashAttentionError flash_attention_backward(
 
 > **注意**：FP16 反向传播当前未实现，调用将返回 `UNSUPPORTED_DTYPE`。
 
+### C ABI 接口（用于 Python ctypes）
+
+为方便从 Python 等语言调用，库提供了 C 语言 ABI 接口：
+
+```c
+// FP32 前向
+cuflash::FlashAttentionError cuflash_forward_f32(
+    const float* Q, const float* K, const float* V,
+    float* O, float* L,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
+);
+
+// FP32 反向
+cuflash::FlashAttentionError cuflash_backward_f32(
+    const float* Q, const float* K, const float* V,
+    const float* O, const float* L, const float* dO,
+    float* dQ, float* dK, float* dV,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
+);
+
+// FP16 版本类似：cuflash_forward_f16 / cuflash_backward_f16
+```
+
+这些函数具有 C 链接（`extern "C"`），可以直接通过 Python `ctypes` 调用。
+
 ## 张量布局
 
 所有张量使用 **行优先（row-major）** 布局：
@@ -122,7 +149,7 @@ size_t offset = ((b * num_heads + h) * seq_len + s) * head_dim + d;
 enum class FlashAttentionError {
     SUCCESS = 0,
     INVALID_DIMENSION,      // 维度参数无效（≤ 0）
-    DIMENSION_MISMATCH,     // Q, K, V 维度不匹配
+    DIMENSION_MISMATCH,     // Q, K, V 维度不匹配（预留，当前未主动检查）
     NULL_POINTER,           // 输入或输出指针为空
     CUDA_ERROR,             // CUDA 运行时错误
     OUT_OF_MEMORY,          // GPU 显存不足
@@ -130,6 +157,8 @@ enum class FlashAttentionError {
     UNSUPPORTED_DTYPE       // 该操作不支持的数据类型
 };
 ```
+
+**注意**：`DIMENSION_MISMATCH` 已预留但当前未实现主动检查，因为 API 未接收每个张量的独立形状信息。
 
 ### `get_error_string`
 

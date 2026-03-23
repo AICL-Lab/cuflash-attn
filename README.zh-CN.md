@@ -5,15 +5,21 @@
 
 [English](README.md) | 简体中文
 
-从零实现的高性能 CUDA C++ FlashAttention。
+从零实现的 CUDA C++ FlashAttention。本项目主要作为参考/教学实现，用于展示 FlashAttention 算法；对于追求极致性能的生产环境，建议使用 FlashAttention-2 等成熟库。
 
 ## 特性
 
-- **前向传播**: O(N) 内存复杂度的高效注意力计算
-- **反向传播**: 基于重计算策略的梯度计算
+- **前向传播**: O(N) 内存复杂度的高效注意力计算（支持 FP32 和 FP16）
+- **反向传播**: 基于重计算策略的梯度计算（仅 FP32；FP16 反向传播尚未实现）
 - **因果掩码**: 支持自回归模型
-- **FP32 & FP16**: 支持单精度和半精度
 - **Online Softmax**: 无需存储 O(N²) 注意力矩阵的数值稳定 softmax
+
+## 已知限制
+
+- **FP16 反向传播未实现** - 使用 `half` 指针调用将返回 `UNSUPPORTED_DTYPE`
+- **head_dim 支持**: 仅支持 32、64、128
+- **高共享内存使用**: head_dim=128 时可能需要支持扩展共享内存的 GPU
+- **DIMENSION_MISMATCH 错误**: 当前未主动检查（API 未接收各张量的形状元数据）
 
 ## 环境要求
 

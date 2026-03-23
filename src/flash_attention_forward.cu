@@ -199,28 +199,50 @@ void launch_flash_attention_forward(
                         BLOCK_M +                 // m_tile
                         BLOCK_M) * sizeof(float); // l_tile
     
-    // Request extended shared memory if needed (default limit is 48KB)
-    auto set_smem = [smem_size](const void* kernel_func) {
+    // Query device shared memory limit and check compatibility
+    int device;
+    cudaGetDevice(&device);
+    int max_smem_per_block;
+    cudaDeviceGetAttribute(&max_smem_per_block, cudaDevAttrMaxSharedMemoryPerBlock, device);
+    if (smem_size > static_cast<size_t>(max_smem_per_block)) {
+        // Insufficient shared memory for this configuration
+        return;
+    }
+    
+    // Request extended shared memory if needed (default limit is 48KB on older GPUs)
+    auto set_smem = [smem_size](const void* kernel_func) -> cudaError_t {
         if (smem_size > 48 * 1024) {
-            cudaFuncSetAttribute(kernel_func,
+            return cudaFuncSetAttribute(const_cast<void*>(kernel_func),
                 cudaFuncAttributeMaxDynamicSharedMemorySize,
                 static_cast<int>(smem_size));
         }
+        return cudaSuccess;
     };
 
+    cudaError_t err = cudaSuccess;
+
     if (head_dim == 32) {
-        set_smem(reinterpret_cast<const void*>(
+        err = set_smem(reinterpret_cast<const void*>(
             flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 32>));
+        if (err != cudaSuccess) {
+            return;
+        }
         flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 32><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 64) {
-        set_smem(reinterpret_cast<const void*>(
+        err = set_smem(reinterpret_cast<const void*>(
             flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 64>));
+        if (err != cudaSuccess) {
+            return;
+        }
         flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 64><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 128) {
-        set_smem(reinterpret_cast<const void*>(
+        err = set_smem(reinterpret_cast<const void*>(
             flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 128>));
+        if (err != cudaSuccess) {
+            return;
+        }
         flash_attention_forward_kernel<BLOCK_M, BLOCK_N, 128><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     }

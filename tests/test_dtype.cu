@@ -16,8 +16,9 @@
 namespace cuflash {
 namespace test {
 
-// Test FP16 forward pass produces reasonable results
-TEST(DTypeTest, FP16Forward) {
+// Test FP16 forward pass produces results close to FP32
+// (FP16 backward returns UNSUPPORTED_DTYPE - see FP16BackwardUnsupported)
+TEST(DTypeTest, FP16ForwardMatchesFP32) {
     const int batch_size = 1;
     const int num_heads = 1;
     const int seq_len = 16;
@@ -100,6 +101,103 @@ TEST(DTypeTest, FP16Forward) {
     cudaFree(d_Q_f16); cudaFree(d_K_f16); cudaFree(d_V_f16); cudaFree(d_O_f16); cudaFree(d_L_f16);
 }
 
+// Test that FP16 backward returns UNSUPPORTED_DTYPE (documented behavior)
+TEST(DTypeTest, FP16BackwardUnsupported) {
+    const int batch_size = 1;
+    const int num_heads = 1;
+    const int seq_len = 8;
+    const int head_dim = 32;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+    
+    size_t qkv_size = batch_size * num_heads * seq_len * head_dim;
+    size_t l_size = batch_size * num_heads * seq_len;
+    
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+    
+    // Create FP16 inputs
+    std::vector<half> h_Q_f16(qkv_size), h_K_f16(qkv_size), h_V_f16(qkv_size);
+    for (size_t i = 0; i < qkv_size; i++) {
+        float val = dist(gen);
+        h_Q_f16[i] = __float2half(val);
+        h_K_f16[i] = __float2half(val);
+        h_V_f16[i] = __float2half(val);
+    }
+    
+    // Allocate device memory
+    half *d_Q, *d_K, *d_V, *d_O, *d_L;
+    half *d_dO, *d_dQ, *d_dK, *d_dV;
+    cudaMalloc(&d_Q, qkv_size * sizeof(half));
+    cudaMalloc(&d_K, qkv_size * sizeof(half));
+    cudaMalloc(&d_V, qkv_size * sizeof(half));
+    cudaMalloc(&d_O, qkv_size * sizeof(half));
+    cudaMalloc(&d_L, l_size * sizeof(half));
+    cudaMalloc(&d_dO, qkv_size * sizeof(half));
+    cudaMalloc(&d_dQ, qkv_size * sizeof(half));
+    cudaMalloc(&d_dK, qkv_size * sizeof(half));
+    cudaMalloc(&d_dV, qkv_size * sizeof(half));
+    
+    cudaMemcpy(d_Q, h_Q_f16.data(), qkv_size * sizeof(half), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_K, h_K_f16.data(), qkv_size * sizeof(half), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_V, h_V_f16.data(), qkv_size * sizeof(half), cudaMemcpyHostToDevice);
+    
+    // FP16 backward should return UNSUPPORTED_DTYPE
+    auto err = flash_attention_backward(d_Q, d_K, d_V, d_O, d_L, d_dO, d_dQ, d_dK, d_dV,
+        batch_size, num_heads, seq_len, head_dim, scale, false, 0);
+    EXPECT_EQ(err, FlashAttentionError::UNSUPPORTED_DTYPE);
+    
+    cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
+    cudaFree(d_dO); cudaFree(d_dQ); cudaFree(d_dK); cudaFree(d_dV);
+}
+
+// Test head_dim=128 (the largest supported dimension)
+TEST(DTypeTest, HeadDim128) {
+    const int batch_size = 1;
+    const int num_heads = 1;
+    const int seq_len = 16;
+    const int head_dim = 128;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+    
+    size_t qkv_size = batch_size * num_heads * seq_len * head_dim;
+    size_t l_size = batch_size * num_heads * seq_len;
+    
+    std::vector<float> h_Q(qkv_size), h_K(qkv_size), h_V(qkv_size);
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<float> dist(-0.5f, 0.5f);
+    for (size_t i = 0; i < qkv_size; i++) {
+        h_Q[i] = dist(gen);
+        h_K[i] = dist(gen);
+        h_V[i] = dist(gen);
+    }
+    
+    std::vector<float> h_O(qkv_size), h_L(l_size);
+    
+    float *d_Q, *d_K, *d_V, *d_O, *d_L;
+    cudaMalloc(&d_Q, qkv_size * sizeof(float));
+    cudaMalloc(&d_K, qkv_size * sizeof(float));
+    cudaMalloc(&d_V, qkv_size * sizeof(float));
+    cudaMalloc(&d_O, qkv_size * sizeof(float));
+    cudaMalloc(&d_L, l_size * sizeof(float));
+    
+    cudaMemcpy(d_Q, h_Q.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_K, h_K.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_V, h_V.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    
+    auto err = flash_attention_forward(d_Q, d_K, d_V, d_O, d_L,
+        batch_size, num_heads, seq_len, head_dim, scale, false, 0);
+    ASSERT_EQ(err, FlashAttentionError::SUCCESS);
+    
+    cudaDeviceSynchronize();
+    cudaMemcpy(h_O.data(), d_O, qkv_size * sizeof(float), cudaMemcpyDeviceToHost);
+    
+    // Check output is finite
+    for (size_t i = 0; i < qkv_size; i++) {
+        EXPECT_TRUE(std::isfinite(h_O[i])) << "Output at index " << i << " is not finite";
+    }
+    
+    cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V); cudaFree(d_O); cudaFree(d_L);
+}
+
 
 #if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: FP16 results should be close to FP32
@@ -109,7 +207,7 @@ RC_GTEST_PROP(DTypeProperty, FP16ClosesToFP32, ()) {
     int batch_size = 1;
     int num_heads = 1;
     int seq_len = *rc::gen::inRange(4, 33);
-    int head_dim = *rc::gen::element(32, 64);
+    int head_dim = *rc::gen::element(32, 64, 128); // Include 128 for full coverage
     float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
     
     size_t qkv_size = batch_size * num_heads * seq_len * head_dim;

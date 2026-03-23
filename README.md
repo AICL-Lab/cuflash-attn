@@ -5,15 +5,21 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A high-performance FlashAttention implementation in CUDA C++ from scratch.
+A FlashAttention implementation in CUDA C++ from scratch. This is primarily a reference/educational implementation demonstrating the FlashAttention algorithm; for production workloads requiring maximum performance, consider using established libraries like FlashAttention-2.
 
 ## Features
 
-- **Forward Pass**: Efficient attention computation with O(N) memory complexity
-- **Backward Pass**: Gradient computation using recomputation strategy
+- **Forward Pass**: Efficient attention computation with O(N) memory complexity (FP32 and FP16)
+- **Backward Pass**: Gradient computation using recomputation strategy (FP32 only; FP16 backward not yet implemented)
 - **Causal Masking**: Support for autoregressive models
-- **FP32 & FP16**: Support for both single and half precision
 - **Online Softmax**: Numerically stable softmax without storing O(N²) attention matrix
+
+## Known Limitations
+
+- **FP16 backward pass is not implemented** - calling with `half` pointers will return `UNSUPPORTED_DTYPE`
+- **head_dim support**: Only 32, 64, and 128 are supported
+- **High shared memory usage**: May require GPUs with extended shared memory support for head_dim=128
+- **DIMENSION_MISMATCH error**: Currently not actively checked (API does not receive per-tensor shape metadata)
 
 ## Requirements
 
