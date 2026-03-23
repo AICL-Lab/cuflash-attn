@@ -43,9 +43,22 @@ cmake --build . -j$(nproc)
 如果 CMake 找不到 CUDA，手动指定：
 
 ```bash
+# Linux/macOS
 cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda \
          -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+
+# Windows (PowerShell)
+cmake .. -DCUDAToolkit_ROOT="$env:CUDA_PATH" `
+         -DCMAKE_CUDA_COMPILER="$env:CUDA_PATH\bin\nvcc.exe"
 ```
+
+### 跨平台说明
+
+- **Linux**: 共享库输出为 `.so` 文件
+- **macOS**: 共享库输出为 `.dylib` 文件  
+- **Windows**: 共享库输出为 `.dll` 文件
+
+Python 测试脚本会自动检测平台并加载对应库文件。
 
 ## 构建选项
 

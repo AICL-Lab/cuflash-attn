@@ -7,6 +7,7 @@
  #include <rapidcheck/gtest.h>
 #endif
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 #include "flash_attention.h"
 
 namespace cuflash {
