@@ -1,7 +1,7 @@
 # CuFlash-Attn
 
-[![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=main&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
+[![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
 
 [English](README.md) | 简体中文
 
@@ -45,7 +45,8 @@ cmake --build --preset release
 
 - `BUILD_TESTS=ON/OFF`: 构建测试套件（默认: ON）
 - `ENABLE_RAPIDCHECK=ON/OFF`: 启用 RapidCheck 属性测试（默认: OFF）
-- `BUILD_SHARED_LIBS=ON/OFF`: 构建 Python ctypes 共享库（默认: ON）
+- `BUILD_SHARED_LIBS=ON/OFF`: 构建共享库（默认: ON）
+- `BUILD_EXAMPLES=ON/OFF`: 构建示例程序（默认: ON）
 - `ENABLE_FAST_MATH=ON/OFF`: 启用 `--use_fast_math`（更快但精度较低，默认: OFF）
 
 ## 使用
@@ -69,7 +70,7 @@ cuflash::FlashAttentionError err = cuflash::flash_attention_forward(
 ### 支持的配置
 
 - **head_dim**: 32, 64, 128
-- **数据类型**: float32, float16
+- **数据类型**: float32；float16 当前仅支持前向
 - **因果掩码**: 可选
 
 ## 算法
@@ -115,7 +116,7 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 
 - `SUCCESS`: 操作成功
 - `INVALID_DIMENSION`: 维度参数无效
-- `DIMENSION_MISMATCH`: Q, K, V 维度不匹配
+- `DIMENSION_MISMATCH`: 为更丰富的形状校验接口预留；当前原始指针接口不会返回该错误
 - `NULL_POINTER`: 输入或输出指针为空
 - `CUDA_ERROR`: CUDA 运行时错误
 - `OUT_OF_MEMORY`: GPU 显存不足

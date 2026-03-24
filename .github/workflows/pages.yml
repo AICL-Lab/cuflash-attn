@@ -1,6 +1,17 @@
 name: Deploy Docs
 
 on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "README.zh-CN.md"
+      - "SUMMARY.md"
+      - "docs/**"
+      - "changelog/**"
+      - "book.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/pages.yml"
   push:
     branches: [master, main]
     paths:
@@ -10,6 +21,8 @@ on:
       - "docs/**"
       - "changelog/**"
       - "book.json"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -19,7 +32,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -33,6 +46,8 @@ jobs:
             README.zh-CN.md
             SUMMARY.md
             book.json
+            package.json
+            package-lock.json
             docs
             changelog
 
@@ -44,20 +59,21 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
-        continue-on-error: true
 
-      - name: Install honkit and plugins
-        run: npm install honkit gitbook-plugin-search-pro gitbook-plugin-highlight gitbook-plugin-copy-code-button gitbook-plugin-expandable-chapters gitbook-plugin-back-to-top-button
+      - name: Install docs dependencies
+        run: npm ci
 
       - name: Build docs
-        run: npx honkit build . _site
+        run: npm run docs:build
 
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:

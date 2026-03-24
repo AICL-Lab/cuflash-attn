@@ -1,7 +1,7 @@
 # CuFlash-Attn
 
-[![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=main&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=main&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
+[![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
 
 English | [简体中文](README.zh-CN.md)
 
@@ -53,7 +53,8 @@ cmake --build . -j$(nproc)
 
 - `BUILD_TESTS=ON/OFF`: Build test suite (default: ON)
 - `ENABLE_RAPIDCHECK=ON/OFF`: Enable RapidCheck property tests (default: OFF)
-- `BUILD_SHARED_LIBS=ON/OFF`: Build shared library for Python ctypes (default: ON)
+- `BUILD_SHARED_LIBS=ON/OFF`: Build the shared library (default: ON)
+- `BUILD_EXAMPLES=ON/OFF`: Build the example binary (default: ON)
 - `ENABLE_FAST_MATH=ON/OFF`: Enable `--use_fast_math` for CUDA (faster but less precise, default: OFF)
 
 If CMake cannot find CUDA, configure it explicitly:
@@ -91,14 +92,13 @@ err = cuflash::flash_attention_backward(
 ### Supported Configurations
 
 - **head_dim**: 32, 64, 128
-- **Data types**: float32, float16
+- **Data types**: float32; float16 is currently forward-only
 - **Causal masking**: Optional
 
 ## Running Tests
 
 ```bash
-cd build
-ctest --output-on-failure
+ctest --preset default --output-on-failure
 ```
 
 GoogleTest is automatically fetched via CMake FetchContent — no manual installation required.
@@ -109,7 +109,7 @@ GoogleTest is automatically fetched via CMake FetchContent — no manual install
 python tests/test_pytorch_comparison.py
 ```
 
-This script loads `build/libcuflash_attn.so`. Ensure you build shared libraries (`-DBUILD_SHARED_LIBS=ON`).
+Build the shared library first. Preset builds place artifacts under `build/<preset>/`, for example `build/default/` or `build/release/`. You can also override the library path with `CUFLASH_LIB=/absolute/path/to/libcuflash_attn.so`.
 
 
 ## Algorithm
@@ -166,7 +166,7 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 
 - `SUCCESS`: Operation completed successfully
 - `INVALID_DIMENSION`: Dimension parameters are invalid
-- `DIMENSION_MISMATCH`: Q, K, V dimensions do not match
+- `DIMENSION_MISMATCH`: Reserved for richer shape validation APIs; not emitted by the current raw-pointer interface
 - `NULL_POINTER`: Input or output pointer is null
 - `CUDA_ERROR`: CUDA runtime error occurred
 - `OUT_OF_MEMORY`: Insufficient GPU memory

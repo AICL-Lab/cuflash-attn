@@ -103,16 +103,15 @@ cuflash::FlashAttentionError flash_attention_backward(
 为方便从 Python 等语言调用，库提供了 C 语言 ABI 接口：
 
 ```c
-// FP32 前向
-cuflash::FlashAttentionError cuflash_forward_f32(
+// 返回值为 cuflash::FlashAttentionError 的整数表示
+int cuflash_attention_forward_f32(
     const float* Q, const float* K, const float* V,
     float* O, float* L,
     int batch_size, int num_heads, int seq_len, int head_dim,
     float scale, bool causal, cudaStream_t stream
 );
 
-// FP32 反向
-cuflash::FlashAttentionError cuflash_backward_f32(
+int cuflash_attention_backward_f32(
     const float* Q, const float* K, const float* V,
     const float* O, const float* L, const float* dO,
     float* dQ, float* dK, float* dV,
@@ -120,7 +119,7 @@ cuflash::FlashAttentionError cuflash_backward_f32(
     float scale, bool causal, cudaStream_t stream
 );
 
-// FP16 版本类似：cuflash_forward_f16 / cuflash_backward_f16
+// FP16 版本类似：cuflash_attention_forward_f16 / cuflash_attention_backward_f16
 ```
 
 这些函数具有 C 链接（`extern "C"`），可以直接通过 Python `ctypes` 调用。
@@ -166,7 +165,7 @@ enum class FlashAttentionError {
 const char* get_error_string(FlashAttentionError error);
 ```
 
-返回错误码对应的可读字符串。
+返回错误码对应的可读字符串。当前原始指针 API 只能校验空指针、正整数维度与支持的 `head_dim`，不会主动检测独立的 Q/K/V 形状是否匹配。
 
 ### 使用示例
 
@@ -190,7 +189,7 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 | 参数 | 支持范围 |
 |------|---------|
 | `head_dim` | 32, 64, 128 |
-| 数据类型 | `float` (FP32), `half` (FP16) |
+| 数据类型 | `float` (FP32)，`half` (FP16，仅前向) |
 | 因果掩码 | 可选（`bool causal`） |
 | 批大小 | ≥ 1 |
 | 注意力头数 | ≥ 1 |
@@ -202,7 +201,7 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 |-----------|--------|------|
 | `BUILD_TESTS` | ON | 构建测试套件 |
 | `ENABLE_RAPIDCHECK` | OFF | 启用 RapidCheck 属性测试 |
-| `BUILD_SHARED_LIBS` | ON | 构建共享库（Python ctypes 可用） |
+| `BUILD_SHARED_LIBS` | ON | 构建共享库（可用于本地集成测试与下游链接） |
 | `ENABLE_FAST_MATH` | OFF | 启用 `--use_fast_math`（更快但精度较低） |
 
 ## GPU 架构支持

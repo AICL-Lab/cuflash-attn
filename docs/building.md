@@ -66,7 +66,8 @@ Python 测试脚本会自动检测平台并加载对应库文件。
 |------|--------|------|
 | `BUILD_TESTS` | ON | 构建 GoogleTest 测试套件 |
 | `ENABLE_RAPIDCHECK` | OFF | 启用 RapidCheck 属性测试 |
-| `BUILD_SHARED_LIBS` | ON | 构建 `.so` 共享库（Python ctypes 可用） |
+| `BUILD_SHARED_LIBS` | ON | 构建共享库（供 C/C++ 使用；Python 集成测试会从 `build/<preset>/` 查找产物） |
+| `BUILD_EXAMPLES` | ON | 构建示例程序 |
 | `ENABLE_FAST_MATH` | OFF | 启用 `--use_fast_math`（加速 expf/logf，精度略降） |
 
 示例：
@@ -80,12 +81,11 @@ cmake .. -DCMAKE_BUILD_TYPE=Release \
 ## 运行测试
 
 ```bash
-# 使用 CMake Preset
+# 使用 CMake Preset（推荐）
 ctest --preset default --output-on-failure
 
-# 或手动
-cd build
-ctest --output-on-failure
+# 或手动构建目录
+ctest --test-dir build/default --output-on-failure
 ```
 
 GoogleTest 通过 CMake FetchContent 自动下载，无需手动安装。
@@ -98,7 +98,7 @@ GoogleTest 通过 CMake FetchContent 自动下载，无需手动安装。
 python tests/test_pytorch_comparison.py
 ```
 
-该脚本会加载 `build/libcuflash_attn.so`，与 PyTorch 的标准注意力实现对比数值精度。
+该脚本会从 `build/<preset>/`（例如 `build/default/`、`build/release/`）查找共享库，并与 PyTorch 的标准注意力实现对比数值精度。也可以通过环境变量 `CUFLASH_LIB` 显式指定共享库路径。
 
 ## 目标 GPU 架构
 
