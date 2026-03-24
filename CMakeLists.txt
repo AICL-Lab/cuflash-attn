@@ -3,6 +3,7 @@ project(cuflash_attn VERSION 0.1.0 LANGUAGES CXX CUDA)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+include(CTest)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,12 +29,11 @@ set(SOURCES
     src/flash_attention_forward.cu
     src/flash_attention_backward.cu
     src/flash_attention_fp16.cu
-    src/cuflash_ctypes_api.cu
 )
 
 # Library
 add_library(cuflash_attn ${SOURCES})
-target_link_libraries(cuflash_attn CUDA::cudart)
+target_link_libraries(cuflash_attn PUBLIC CUDA::cudart)
 target_include_directories(cuflash_attn PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
@@ -41,6 +41,7 @@ target_include_directories(cuflash_attn PUBLIC
 set_target_properties(cuflash_attn PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     EXPORT_NAME cuflash_attn
+    CUDA_SEPARABLE_COMPILATION ON
 )
 
 # Set CUDA flags
@@ -77,10 +78,8 @@ if(BUILD_TESTS)
         FetchContent_MakeAvailable(rapidcheck)
     endif()
 
-    enable_testing()
-
-    # Test executable
     add_executable(cuflash_attn_tests
+        tests/test_main.cpp
         tests/test_online_softmax.cu
         tests/test_forward.cu
         tests/test_backward.cu
@@ -89,36 +88,74 @@ if(BUILD_TESTS)
         tests/test_dtype.cu
         tests/test_numerical_stability.cu
     )
-
-    target_link_libraries(cuflash_attn_tests
-        cuflash_attn
-        gtest_main
-        CUDA::cudart
-    )
-
-    if(ENABLE_RAPIDCHECK)
-        target_link_libraries(cuflash_attn_tests rapidcheck)
-        target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=1)
-    else()
-        target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=0)
-    endif()
-
+    target_link_libraries(cuflash_attn_tests PRIVATE cuflash_attn gtest)
     target_compile_options(cuflash_attn_tests PRIVATE
         $<$<COMPILE_LANGUAGE:CUDA>:
             --expt-relaxed-constexpr
         >
     )
+    set_target_properties(cuflash_attn_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
-    include(GoogleTest)
-    gtest_discover_tests(cuflash_attn_tests)
+    if(ENABLE_RAPIDCHECK)
+        target_link_libraries(cuflash_attn_tests PRIVATE rapidcheck)
+        target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=1)
+    else()
+        target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=0)
+    endif()
+
+    add_executable(cuflash_attn_api_smoke tests/test_api_smoke.cpp)
+    target_link_libraries(cuflash_attn_api_smoke PRIVATE cuflash_attn)
+    set_target_properties(cuflash_attn_api_smoke PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
+    )
+
+    if(BUILD_TESTING)
+        add_test(NAME cuflash_attn_api_smoke COMMAND cuflash_attn_api_smoke)
+
+        include(GoogleTest)
+        gtest_discover_tests(cuflash_attn_tests DISCOVERY_TIMEOUT 60)
+    endif()
+
+    add_custom_target(check
+        COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+        DEPENDS cuflash_attn_tests cuflash_attn_api_smoke
+    )
 endif()
 
 # Example executable
 if(BUILD_EXAMPLES)
     add_executable(example examples/basic_usage.cu)
-    target_link_libraries(example cuflash_attn CUDA::cudart)
+    target_link_libraries(example PRIVATE cuflash_attn)
+    set_target_properties(example PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 endif()
 
+if(BUILD_TESTING AND BUILD_EXAMPLES)
+    add_test(NAME cuflash_attn_example_build COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target example)
+    set_tests_properties(cuflash_attn_example_build PROPERTIES LABELS "smoke")
+endif()
+
+if(BUILD_TESTING AND BUILD_SHARED_LIBS)
+    set(CUFLASH_PACKAGE_SMOKE_BUILD_DIR ${CMAKE_BINARY_DIR}/package-smoke)
+    set(CUFLASH_PACKAGE_SMOKE_INSTALL_DIR ${CMAKE_BINARY_DIR}/package-install)
+
+    add_test(
+        NAME cuflash_attn_package_smoke
+        COMMAND ${CMAKE_COMMAND}
+            -Dproject_build_dir=${CMAKE_BINARY_DIR}
+            -Dsource_dir=${CMAKE_SOURCE_DIR}/tests/package_smoke
+            -Dbinary_dir=${CUFLASH_PACKAGE_SMOKE_BUILD_DIR}
+            -Dinstall_dir=${CUFLASH_PACKAGE_SMOKE_INSTALL_DIR}
+            -Dgenerator=${CMAKE_GENERATOR}
+            -Dbuild_type=${CMAKE_BUILD_TYPE}
+            -Dcuda_architectures=${CMAKE_CUDA_ARCHITECTURES}
+            -Dctest_command=${CMAKE_CTEST_COMMAND}
+            -P ${CMAKE_SOURCE_DIR}/cmake/run_package_smoke.cmake
+    )
+    set_tests_properties(cuflash_attn_package_smoke PROPERTIES LABELS "smoke;package")
+endif()
+
+# Installation
 install(TARGETS cuflash_attn
     EXPORT cuflash_attnTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

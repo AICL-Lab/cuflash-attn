@@ -1,6 +1,7 @@
 // Flash Attention FP16 Support
 
 #include "flash_attention.h"
+#include "kernel_launch_utils.cuh"
 #include <cuda_fp16.h>
 
 namespace cuflash {
@@ -185,6 +186,8 @@ template __global__ void flash_attention_forward_fp16_kernel<64, 64, 64>(
     const half*, const half*, const half*, half*, half*, int, float, bool);
 template __global__ void flash_attention_forward_fp16_kernel<64, 64, 128>(
     const half*, const half*, const half*, half*, half*, int, float, bool);
+template __global__ void flash_attention_forward_fp16_kernel<32, 32, 128>(
+    const half*, const half*, const half*, half*, half*, int, float, bool);
 
 
 // Launch FP16 forward kernel
@@ -196,11 +199,16 @@ FlashAttentionError launch_flash_attention_forward_fp16(
 ) {
     constexpr int BLOCK_M = 64;
     constexpr int BLOCK_N = 64;
-    
-    int num_q_blocks = (seq_len + BLOCK_M - 1) / BLOCK_M;
-    dim3 grid(num_q_blocks, batch_size * num_heads);
+    constexpr int BLOCK_M_HD128 = 32;
+    constexpr int BLOCK_N_HD128 = 32;
+
+    const int batch_heads = batch_size * num_heads;
+    const int num_q_blocks = (seq_len + BLOCK_M - 1) / BLOCK_M;
+    const int num_q_blocks_hd128 = (seq_len + BLOCK_M_HD128 - 1) / BLOCK_M_HD128;
+    dim3 grid(num_q_blocks, batch_heads);
+    dim3 grid_hd128(num_q_blocks_hd128, batch_heads);
     dim3 block(128);
-    
+
     size_t smem_size = (BLOCK_M * head_dim +
                         BLOCK_N * head_dim +
                         BLOCK_N * head_dim +
@@ -208,41 +216,42 @@ FlashAttentionError launch_flash_attention_forward_fp16(
                         BLOCK_M * head_dim +
                         BLOCK_M +
                         BLOCK_M) * sizeof(float);
-    
-    // Request extended shared memory if needed (default limit is 48KB)
-    auto set_smem = [smem_size](const void* kernel_func) -> cudaError_t {
-        if (smem_size > 48 * 1024) {
-            return cudaFuncSetAttribute(kernel_func,
-                cudaFuncAttributeMaxDynamicSharedMemorySize,
-                static_cast<int>(smem_size));
-        }
-        return cudaSuccess;
-    };
+    size_t smem_size_hd128 = (BLOCK_M_HD128 * head_dim +
+                              BLOCK_N_HD128 * head_dim +
+                              BLOCK_N_HD128 * head_dim +
+                              BLOCK_M_HD128 * BLOCK_N_HD128 +
+                              BLOCK_M_HD128 * head_dim +
+                              BLOCK_M_HD128 +
+                              BLOCK_M_HD128) * sizeof(float);
 
     cudaError_t err = cudaSuccess;
+    FlashAttentionError status = FlashAttentionError::SUCCESS;
     if (head_dim == 32) {
-        err = set_smem(reinterpret_cast<const void*>(
-            flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 32>));
-        if (err != cudaSuccess) {
-            return FlashAttentionError::CUDA_ERROR;
+        status = prepare_dynamic_smem_launch(
+            reinterpret_cast<const void*>(flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 32>),
+            smem_size);
+        if (status != FlashAttentionError::SUCCESS) {
+            return status;
         }
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 32><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 64) {
-        err = set_smem(reinterpret_cast<const void*>(
-            flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 64>));
-        if (err != cudaSuccess) {
-            return FlashAttentionError::CUDA_ERROR;
+        status = prepare_dynamic_smem_launch(
+            reinterpret_cast<const void*>(flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 64>),
+            smem_size);
+        if (status != FlashAttentionError::SUCCESS) {
+            return status;
         }
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 64><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 128) {
-        err = set_smem(reinterpret_cast<const void*>(
-            flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 128>));
-        if (err != cudaSuccess) {
-            return FlashAttentionError::CUDA_ERROR;
+        status = prepare_dynamic_smem_launch(
+            reinterpret_cast<const void*>(flash_attention_forward_fp16_kernel<BLOCK_M_HD128, BLOCK_N_HD128, 128>),
+            smem_size_hd128);
+        if (status != FlashAttentionError::SUCCESS) {
+            return status;
         }
-        flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 128><<<grid, block, smem_size, stream>>>(
+        flash_attention_forward_fp16_kernel<BLOCK_M_HD128, BLOCK_N_HD128, 128><<<grid_hd128, block, smem_size_hd128, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     }
 
