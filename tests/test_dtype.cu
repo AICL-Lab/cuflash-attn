@@ -199,6 +199,22 @@ TEST(DTypeTest, HeadDim128) {
 }
 
 
+TEST(DTypeTest, FP16BackwardReturnsUnsupportedDType) {
+    const int batch_size = 1;
+    const int num_heads = 1;
+    const int seq_len = 8;
+    const int head_dim = 32;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+
+    half dummy = __float2half(0.0f);
+
+    auto err = flash_attention_backward(
+        &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy, &dummy,
+        batch_size, num_heads, seq_len, head_dim, scale, false, 0);
+
+    EXPECT_EQ(err, FlashAttentionError::UNSUPPORTED_DTYPE);
+}
+
 #if CUFLASH_ENABLE_RAPIDCHECK
 // Property test: FP16 results should be close to FP32
 // Feature: cuflash-attn, Property 6: 数据类型支持

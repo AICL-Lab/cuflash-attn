@@ -188,7 +188,7 @@ template __global__ void flash_attention_forward_fp16_kernel<64, 64, 128>(
 
 
 // Launch FP16 forward kernel
-void launch_flash_attention_forward_fp16(
+FlashAttentionError launch_flash_attention_forward_fp16(
     const half* Q, const half* K, const half* V,
     half* O, half* L,
     int batch_size, int num_heads, int seq_len, int head_dim,
@@ -210,30 +210,48 @@ void launch_flash_attention_forward_fp16(
                         BLOCK_M) * sizeof(float);
     
     // Request extended shared memory if needed (default limit is 48KB)
-    auto set_smem = [smem_size](const void* kernel_func) {
+    auto set_smem = [smem_size](const void* kernel_func) -> cudaError_t {
         if (smem_size > 48 * 1024) {
-            cudaFuncSetAttribute(kernel_func,
+            return cudaFuncSetAttribute(kernel_func,
                 cudaFuncAttributeMaxDynamicSharedMemorySize,
                 static_cast<int>(smem_size));
         }
+        return cudaSuccess;
     };
 
+    cudaError_t err = cudaSuccess;
     if (head_dim == 32) {
-        set_smem(reinterpret_cast<const void*>(
+        err = set_smem(reinterpret_cast<const void*>(
             flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 32>));
+        if (err != cudaSuccess) {
+            return FlashAttentionError::CUDA_ERROR;
+        }
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 32><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 64) {
-        set_smem(reinterpret_cast<const void*>(
+        err = set_smem(reinterpret_cast<const void*>(
             flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 64>));
+        if (err != cudaSuccess) {
+            return FlashAttentionError::CUDA_ERROR;
+        }
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 64><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     } else if (head_dim == 128) {
-        set_smem(reinterpret_cast<const void*>(
+        err = set_smem(reinterpret_cast<const void*>(
             flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 128>));
+        if (err != cudaSuccess) {
+            return FlashAttentionError::CUDA_ERROR;
+        }
         flash_attention_forward_fp16_kernel<BLOCK_M, BLOCK_N, 128><<<grid, block, smem_size, stream>>>(
             Q, K, V, O, L, seq_len, scale, causal);
     }
+
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        return FlashAttentionError::CUDA_ERROR;
+    }
+
+    return FlashAttentionError::SUCCESS;
 }
 
 // Internal FP16 forward entry point (validation already done by API layer)
@@ -243,15 +261,8 @@ FlashAttentionError flash_attention_forward_fp16(
     int batch_size, int num_heads, int seq_len, int head_dim,
     float scale, bool causal, cudaStream_t stream
 ) {
-    launch_flash_attention_forward_fp16(Q, K, V, O, L,
+    return launch_flash_attention_forward_fp16(Q, K, V, O, L,
         batch_size, num_heads, seq_len, head_dim, scale, causal, stream);
-    
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    
-    return FlashAttentionError::SUCCESS;
 }
 
 } // namespace cuflash

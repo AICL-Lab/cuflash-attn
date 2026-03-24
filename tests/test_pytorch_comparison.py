@@ -27,7 +27,7 @@ class CuFlashLibrary:
     def __init__(self, library: ctypes.CDLL):
         self.library = library
 
-        self.library.cuflash_forward_f32.argtypes = [
+        self.library.cuflash_attention_forward_f32.argtypes = [
             ctypes.c_void_p,
             ctypes.c_void_p,
             ctypes.c_void_p,
@@ -41,9 +41,9 @@ class CuFlashLibrary:
             ctypes.c_bool,
             ctypes.c_void_p,
         ]
-        self.library.cuflash_forward_f32.restype = ctypes.c_int
+        self.library.cuflash_attention_forward_f32.restype = ctypes.c_int
 
-        self.library.cuflash_backward_f32.argtypes = [
+        self.library.cuflash_attention_backward_f32.argtypes = [
             ctypes.c_void_p,
             ctypes.c_void_p,
             ctypes.c_void_p,
@@ -61,9 +61,9 @@ class CuFlashLibrary:
             ctypes.c_bool,
             ctypes.c_void_p,
         ]
-        self.library.cuflash_backward_f32.restype = ctypes.c_int
+        self.library.cuflash_attention_backward_f32.restype = ctypes.c_int
 
-        self.library.cuflash_forward_f16.argtypes = [
+        self.library.cuflash_attention_forward_f16.argtypes = [
             ctypes.c_void_p,
             ctypes.c_void_p,
             ctypes.c_void_p,
@@ -77,9 +77,9 @@ class CuFlashLibrary:
             ctypes.c_bool,
             ctypes.c_void_p,
         ]
-        self.library.cuflash_forward_f16.restype = ctypes.c_int
+        self.library.cuflash_attention_forward_f16.restype = ctypes.c_int
 
-        self.library.cuflash_backward_f16.argtypes = [
+        self.library.cuflash_attention_backward_f16.argtypes = [
             ctypes.c_void_p,
             ctypes.c_void_p,
             ctypes.c_void_p,
@@ -97,7 +97,7 @@ class CuFlashLibrary:
             ctypes.c_bool,
             ctypes.c_void_p,
         ]
-        self.library.cuflash_backward_f16.restype = ctypes.c_int
+        self.library.cuflash_attention_backward_f16.restype = ctypes.c_int
 
 
 def _script_dir() -> str:
@@ -109,6 +109,10 @@ def _candidate_library_paths() -> Sequence[str]:
     build_dir = os.path.join(root, "build")
     candidates = []
 
+    explicit = os.environ.get("CUFLASH_LIB")
+    if explicit:
+        candidates.append(explicit)
+
     if sys.platform.startswith("win"):
         names = ["cuflash_attn.dll", "libcuflash_attn.dll"]
     elif sys.platform == "darwin":
@@ -116,18 +120,21 @@ def _candidate_library_paths() -> Sequence[str]:
     else:
         names = ["libcuflash_attn.so"]
 
+    preset_dirs = ["default", "release", "release-fast-math", "minimal", "Release", "Debug"]
     for name in names:
         candidates.append(os.path.join(build_dir, name))
-        candidates.append(os.path.join(build_dir, "Release", name))
-        candidates.append(os.path.join(build_dir, "Debug", name))
+        for preset_dir in preset_dirs:
+            candidates.append(os.path.join(build_dir, preset_dir, name))
 
     return candidates
 
 
 def load_library() -> Optional[CuFlashLibrary]:
     for lib_path in _candidate_library_paths():
-        if os.path.exists(lib_path):
+        try:
             return CuFlashLibrary(ctypes.CDLL(lib_path))
+        except OSError:
+            continue
 
     print("Library not found. Tried:")
     for lib_path in _candidate_library_paths():
@@ -154,7 +161,7 @@ def _call_forward_f32(
     o = torch.empty_like(q)
     l = torch.empty((batch_size, num_heads, seq_len), device=q.device, dtype=torch.float32)
 
-    status = library.library.cuflash_forward_f32(
+    status = library.library.cuflash_attention_forward_f32(
         _ptr(q),
         _ptr(k),
         _ptr(v),
@@ -188,7 +195,7 @@ def _call_backward_f32(
     d_k = torch.empty_like(k)
     d_v = torch.empty_like(v)
 
-    status = library.library.cuflash_backward_f32(
+    status = library.library.cuflash_attention_backward_f32(
         _ptr(q),
         _ptr(k),
         _ptr(v),
@@ -222,7 +229,7 @@ def _call_forward_f16(
     o = torch.empty_like(q)
     l = torch.empty((batch_size, num_heads, seq_len), device=q.device, dtype=torch.float16)
 
-    status = library.library.cuflash_forward_f16(
+    status = library.library.cuflash_attention_forward_f16(
         _ptr(q),
         _ptr(k),
         _ptr(v),
@@ -256,7 +263,7 @@ def _call_backward_f16(
     d_k = torch.empty_like(k)
     d_v = torch.empty_like(v)
 
-    status = library.library.cuflash_backward_f16(
+    status = library.library.cuflash_attention_backward_f16(
         _ptr(q),
         _ptr(k),
         _ptr(v),

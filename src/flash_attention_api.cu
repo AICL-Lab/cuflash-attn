@@ -3,7 +3,7 @@
 namespace cuflash {
 
 // Forward declaration
-void launch_flash_attention_forward(
+FlashAttentionError launch_flash_attention_forward(
     const float* Q, const float* K, const float* V,
     float* O, float* L,
     int batch_size, int num_heads, int seq_len, int head_dim,
@@ -25,6 +25,13 @@ FlashAttentionError flash_attention_forward_fp16(
     float scale, bool causal, cudaStream_t stream
 );
 
+FlashAttentionError launch_flash_attention_forward_fp16(
+    const half* Q, const half* K, const half* V,
+    half* O, half* L,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
+);
+
 const char* get_error_string(FlashAttentionError error) {
     switch (error) {
         case FlashAttentionError::SUCCESS:
@@ -32,7 +39,7 @@ const char* get_error_string(FlashAttentionError error) {
         case FlashAttentionError::INVALID_DIMENSION:
             return "Invalid dimension: dimensions must be positive";
         case FlashAttentionError::DIMENSION_MISMATCH:
-            return "Dimension mismatch: Q, K, V dimensions must match";
+            return "Dimension mismatch: reserved for richer shape validation APIs";
         case FlashAttentionError::NULL_POINTER:
             return "Null pointer: input or output pointer is null";
         case FlashAttentionError::CUDA_ERROR:
@@ -105,20 +112,11 @@ FlashAttentionError flash_attention_forward(
         return err;
     }
     
-    // Launch kernel
-    launch_flash_attention_forward(
+    return launch_flash_attention_forward(
         Q, K, V, O, L,
         batch_size, num_heads, seq_len, head_dim,
         scale, causal, stream
     );
-    
-    // Check for CUDA errors
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    
-    return FlashAttentionError::SUCCESS;
 }
 
 FlashAttentionError flash_attention_backward(
@@ -208,3 +206,95 @@ FlashAttentionError flash_attention_backward(
 }
 
 } // namespace cuflash
+
+extern "C" {
+
+int cuflash_attention_forward_f32(
+    const float* Q,
+    const float* K,
+    const float* V,
+    float* O,
+    float* L,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+) {
+    return static_cast<int>(cuflash::flash_attention_forward(
+        Q, K, V, O, L,
+        batch_size, num_heads, seq_len, head_dim,
+        scale, causal, stream));
+}
+
+int cuflash_attention_backward_f32(
+    const float* Q,
+    const float* K,
+    const float* V,
+    const float* O,
+    const float* L,
+    const float* dO,
+    float* dQ,
+    float* dK,
+    float* dV,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+) {
+    return static_cast<int>(cuflash::flash_attention_backward(
+        Q, K, V, O, L, dO, dQ, dK, dV,
+        batch_size, num_heads, seq_len, head_dim,
+        scale, causal, stream));
+}
+
+int cuflash_attention_forward_f16(
+    const half* Q,
+    const half* K,
+    const half* V,
+    half* O,
+    half* L,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+) {
+    return static_cast<int>(cuflash::flash_attention_forward(
+        Q, K, V, O, L,
+        batch_size, num_heads, seq_len, head_dim,
+        scale, causal, stream));
+}
+
+int cuflash_attention_backward_f16(
+    const half* Q,
+    const half* K,
+    const half* V,
+    const half* O,
+    const half* L,
+    const half* dO,
+    half* dQ,
+    half* dK,
+    half* dV,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+) {
+    return static_cast<int>(cuflash::flash_attention_backward(
+        Q, K, V, O, L, dO, dQ, dK, dV,
+        batch_size, num_heads, seq_len, head_dim,
+        scale, causal, stream));
+}
+
+}

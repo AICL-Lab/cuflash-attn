@@ -9,7 +9,7 @@ namespace cuflash {
 enum class FlashAttentionError {
     SUCCESS = 0,
     INVALID_DIMENSION,      // 维度参数无效
-    DIMENSION_MISMATCH,     // Q, K, V 维度不匹配
+    DIMENSION_MISMATCH,     // 为更丰富的形状校验接口预留
     NULL_POINTER,           // 空指针输入
     CUDA_ERROR,             // CUDA 运行时错误
     OUT_OF_MEMORY,          // 显存不足
@@ -95,3 +95,81 @@ FlashAttentionError flash_attention_backward(
 );
 
 } // namespace cuflash
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Stable C ABI wrappers for shared-library integration.
+// Return values are the integer representation of cuflash::FlashAttentionError.
+int cuflash_attention_forward_f32(
+    const float* Q,
+    const float* K,
+    const float* V,
+    float* O,
+    float* L,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+);
+
+int cuflash_attention_backward_f32(
+    const float* Q,
+    const float* K,
+    const float* V,
+    const float* O,
+    const float* L,
+    const float* dO,
+    float* dQ,
+    float* dK,
+    float* dV,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+);
+
+int cuflash_attention_forward_f16(
+    const half* Q,
+    const half* K,
+    const half* V,
+    half* O,
+    half* L,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+);
+
+int cuflash_attention_backward_f16(
+    const half* Q,
+    const half* K,
+    const half* V,
+    const half* O,
+    const half* L,
+    const half* dO,
+    half* dQ,
+    half* dK,
+    half* dV,
+    int batch_size,
+    int num_heads,
+    int seq_len,
+    int head_dim,
+    float scale,
+    bool causal,
+    cudaStream_t stream
+);
+
+#ifdef __cplusplus
+}
+#endif

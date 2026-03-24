@@ -1,8 +1,13 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include <stdint.h>
 
 namespace cuflash {
+
+__device__ __forceinline__ bool is_aligned_16(const void* ptr) {
+    return (reinterpret_cast<uintptr_t>(ptr) & 0xF) == 0;
+}
 
 // Tiling configuration
 struct TilingConfig {
@@ -30,26 +35,47 @@ __device__ __forceinline__ void load_tile_to_shared(
     const int num_threads = blockDim.x;
     const int total_elements = BLOCK_ROWS * BLOCK_COLS;
     
-    // Use float4 vectorized loads when BLOCK_COLS is divisible by 4 and col_start is aligned
+    const bool can_vectorize = (BLOCK_COLS % 4 == 0) &&
+                               (src_stride % 4 == 0) &&
+                               (col_start % 4 == 0) &&
+                               is_aligned_16(src) &&
+                               is_aligned_16(dst);
+
+    // Use float4 vectorized loads only when pointer/stride alignment is guaranteed.
     if constexpr (BLOCK_COLS % 4 == 0) {
-        const int total_vec = total_elements / 4;
-        for (int i = tid; i < total_vec; i += num_threads) {
-            int elem_idx = i * 4;
-            int local_row = elem_idx / BLOCK_COLS;
-            int local_col = elem_idx % BLOCK_COLS;
-            int global_row = row_start + local_row;
-            int global_col = col_start + local_col;
-            
-            float4 val = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-            if (global_row < max_rows && global_col + 3 < max_cols) {
-                val = *reinterpret_cast<const float4*>(&src[global_row * src_stride + global_col]);
-            } else if (global_row < max_rows) {
-                if (global_col < max_cols) val.x = src[global_row * src_stride + global_col];
-                if (global_col + 1 < max_cols) val.y = src[global_row * src_stride + global_col + 1];
-                if (global_col + 2 < max_cols) val.z = src[global_row * src_stride + global_col + 2];
-                if (global_col + 3 < max_cols) val.w = src[global_row * src_stride + global_col + 3];
+        if (can_vectorize) {
+            const int total_vec = total_elements / 4;
+            for (int i = tid; i < total_vec; i += num_threads) {
+                int elem_idx = i * 4;
+                int local_row = elem_idx / BLOCK_COLS;
+                int local_col = elem_idx % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                float4 val = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+                if (global_row < max_rows && global_col + 3 < max_cols) {
+                    val = *reinterpret_cast<const float4*>(&src[global_row * src_stride + global_col]);
+                } else if (global_row < max_rows) {
+                    if (global_col < max_cols) val.x = src[global_row * src_stride + global_col];
+                    if (global_col + 1 < max_cols) val.y = src[global_row * src_stride + global_col + 1];
+                    if (global_col + 2 < max_cols) val.z = src[global_row * src_stride + global_col + 2];
+                    if (global_col + 3 < max_cols) val.w = src[global_row * src_stride + global_col + 3];
+                }
+                *reinterpret_cast<float4*>(&dst[local_row * BLOCK_COLS + local_col]) = val;
             }
-            *reinterpret_cast<float4*>(&dst[local_row * BLOCK_COLS + local_col]) = val;
+        } else {
+            for (int i = tid; i < total_elements; i += num_threads) {
+                int local_row = i / BLOCK_COLS;
+                int local_col = i % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                if (global_row < max_rows && global_col < max_cols) {
+                    dst[local_row * BLOCK_COLS + local_col] = src[global_row * src_stride + global_col];
+                } else {
+                    dst[local_row * BLOCK_COLS + local_col] = 0.0f;
+                }
+            }
         }
     } else {
         for (int i = tid; i < total_elements; i += num_threads) {
@@ -83,23 +109,42 @@ __device__ __forceinline__ void store_tile_from_shared(
     const int num_threads = blockDim.x;
     const int total_elements = BLOCK_ROWS * BLOCK_COLS;
     
+    const bool can_vectorize = (BLOCK_COLS % 4 == 0) &&
+                               (dst_stride % 4 == 0) &&
+                               (col_start % 4 == 0) &&
+                               is_aligned_16(src) &&
+                               is_aligned_16(dst);
+
     if constexpr (BLOCK_COLS % 4 == 0) {
-        const int total_vec = total_elements / 4;
-        for (int i = tid; i < total_vec; i += num_threads) {
-            int elem_idx = i * 4;
-            int local_row = elem_idx / BLOCK_COLS;
-            int local_col = elem_idx % BLOCK_COLS;
-            int global_row = row_start + local_row;
-            int global_col = col_start + local_col;
-            
-            if (global_row < max_rows && global_col + 3 < max_cols) {
-                float4 val = *reinterpret_cast<const float4*>(&src[local_row * BLOCK_COLS + local_col]);
-                *reinterpret_cast<float4*>(&dst[global_row * dst_stride + global_col]) = val;
-            } else if (global_row < max_rows) {
-                if (global_col < max_cols) dst[global_row * dst_stride + global_col] = src[local_row * BLOCK_COLS + local_col];
-                if (global_col + 1 < max_cols) dst[global_row * dst_stride + global_col + 1] = src[local_row * BLOCK_COLS + local_col + 1];
-                if (global_col + 2 < max_cols) dst[global_row * dst_stride + global_col + 2] = src[local_row * BLOCK_COLS + local_col + 2];
-                if (global_col + 3 < max_cols) dst[global_row * dst_stride + global_col + 3] = src[local_row * BLOCK_COLS + local_col + 3];
+        if (can_vectorize) {
+            const int total_vec = total_elements / 4;
+            for (int i = tid; i < total_vec; i += num_threads) {
+                int elem_idx = i * 4;
+                int local_row = elem_idx / BLOCK_COLS;
+                int local_col = elem_idx % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                if (global_row < max_rows && global_col + 3 < max_cols) {
+                    float4 val = *reinterpret_cast<const float4*>(&src[local_row * BLOCK_COLS + local_col]);
+                    *reinterpret_cast<float4*>(&dst[global_row * dst_stride + global_col]) = val;
+                } else if (global_row < max_rows) {
+                    if (global_col < max_cols) dst[global_row * dst_stride + global_col] = src[local_row * BLOCK_COLS + local_col];
+                    if (global_col + 1 < max_cols) dst[global_row * dst_stride + global_col + 1] = src[local_row * BLOCK_COLS + local_col + 1];
+                    if (global_col + 2 < max_cols) dst[global_row * dst_stride + global_col + 2] = src[local_row * BLOCK_COLS + local_col + 2];
+                    if (global_col + 3 < max_cols) dst[global_row * dst_stride + global_col + 3] = src[local_row * BLOCK_COLS + local_col + 3];
+                }
+            }
+        } else {
+            for (int i = tid; i < total_elements; i += num_threads) {
+                int local_row = i / BLOCK_COLS;
+                int local_col = i % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                if (global_row < max_rows && global_col < max_cols) {
+                    dst[global_row * dst_stride + global_col] = src[local_row * BLOCK_COLS + local_col];
+                }
             }
         }
     } else {
