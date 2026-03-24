@@ -45,7 +45,8 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "BUILD_TESTS": "OFF",
-                "BUILD_SHARED_LIBS": "OFF"
+                "BUILD_SHARED_LIBS": "OFF",
+                "BUILD_EXAMPLES": "OFF"
             }
         }
     ],

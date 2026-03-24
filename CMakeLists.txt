@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
-project(cuflash_attn LANGUAGES CXX CUDA)
+project(cuflash_attn VERSION 0.1.0 LANGUAGES CXX CUDA)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,6 +19,7 @@ find_package(CUDAToolkit REQUIRED)
 option(BUILD_TESTS "Build tests" ON)
 option(ENABLE_RAPIDCHECK "Enable RapidCheck property tests" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+option(BUILD_EXAMPLES "Build examples" ON)
 option(ENABLE_FAST_MATH "Enable --use_fast_math (faster but less precise)" OFF)
 
 # Source files
@@ -34,7 +38,10 @@ target_include_directories(cuflash_attn PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-set_target_properties(cuflash_attn PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(cuflash_attn PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    EXPORT_NAME cuflash_attn
+)
 
 # Set CUDA flags
 # Note: Optimization level (-O2/-O3) is controlled by CMAKE_BUILD_TYPE.
@@ -107,5 +114,50 @@ if(BUILD_TESTS)
 endif()
 
 # Example executable
-add_executable(example examples/basic_usage.cu)
-target_link_libraries(example cuflash_attn CUDA::cudart)
+if(BUILD_EXAMPLES)
+    add_executable(example examples/basic_usage.cu)
+    target_link_libraries(example cuflash_attn CUDA::cudart)
+endif()
+
+install(TARGETS cuflash_attn
+    EXPORT cuflash_attnTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(EXPORT cuflash_attnTargets
+    FILE cuflash_attnTargets.cmake
+    NAMESPACE cuflash::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cuflash_attn
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cuflash_attnConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/cuflash_attnConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cuflash_attn
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/cuflash_attnConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/cuflash_attnConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/cuflash_attnConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cuflash_attn
+)
+
+export(EXPORT cuflash_attnTargets
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/cuflash_attnTargets.cmake
+    NAMESPACE cuflash::
+)
+
+export(PACKAGE cuflash_attn)

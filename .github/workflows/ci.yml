@@ -29,3 +29,23 @@ jobs:
           check-path: '.'
           exclude-regex: '(^|/)(build|third_party|external|vendor|\.git)(/|$)'
           fallback-style: 'LLVM'
+
+  configure-minimal:
+    name: Configure Minimal Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@v0.2.15
+        with:
+          cuda: '12.4.1'
+          method: 'network'
+          sub-packages: '["nvcc", "cudart", "cccl"]'
+
+      - name: Configure CMake minimal preset
+        run: cmake --preset minimal
+
+      - name: Build minimal preset
+        run: cmake --build --preset minimal
