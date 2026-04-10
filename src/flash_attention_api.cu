@@ -25,6 +25,14 @@ FlashAttentionError flash_attention_forward_fp16(
     float scale, bool causal, cudaStream_t stream
 );
 
+FlashAttentionError flash_attention_backward_fp16(
+    const half* Q, const half* K, const half* V,
+    const half* O, const half* L, const half* dO,
+    half* dQ, half* dK, half* dV,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
+);
+
 FlashAttentionError launch_flash_attention_forward_fp16(
     const half* Q, const half* K, const half* V,
     half* O, half* L,
@@ -201,8 +209,17 @@ FlashAttentionError flash_attention_backward(
     bool causal,
     cudaStream_t stream
 ) {
-    // Will be implemented in task 7.1
-    return FlashAttentionError::UNSUPPORTED_DTYPE;
+    FlashAttentionError err = validate_params_bwd(
+        Q, K, V, O, L, dO, dQ, dK, dV,
+        batch_size, num_heads, seq_len, head_dim);
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
+    }
+
+    return flash_attention_backward_fp16(
+        Q, K, V, O, L, dO, dQ, dK, dV,
+        batch_size, num_heads, seq_len, head_dim,
+        scale, causal, stream);
 }
 
 } // namespace cuflash
