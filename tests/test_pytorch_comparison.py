@@ -256,7 +256,7 @@ def _call_backward_f16(
     l: torch.Tensor,
     grad_output: torch.Tensor,
     causal: bool,
-) -> int:
+):
     batch_size, num_heads, seq_len, head_dim = q.shape
     scale = float(1.0 / np.sqrt(head_dim))
     d_q = torch.empty_like(q)
@@ -282,7 +282,7 @@ def _call_backward_f16(
         None,
     )
     torch.cuda.synchronize()
-    return status
+    return status, d_q, d_k, d_v
 
 
 def _reference_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, causal: bool) -> torch.Tensor:
@@ -413,9 +413,9 @@ def test_fp16_forward_equivalence(library: CuFlashLibrary):
     return True
 
 
-def test_fp16_backward_unsupported(library: CuFlashLibrary):
-    """Test that FP16 backward reports the documented unsupported status."""
-    print("Testing FP16 backward unsupported contract...")
+def test_fp16_backward_equivalence(library: CuFlashLibrary):
+    """Test that FP16 backward gradients stay close to PyTorch autograd."""
+    print("Testing FP16 backward equivalence...")
 
     batch_size = 1
     num_heads = 1
@@ -428,14 +428,34 @@ def test_fp16_backward_unsupported(library: CuFlashLibrary):
     v = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.float16).contiguous()
     grad_output = torch.randn_like(q).contiguous()
 
+    # CuFlash FP16 forward + backward
     status, output, l = _call_forward_f16(library, q, k, v, causal=False)
     assert status == SUCCESS, f"CuFlash FP16 forward failed with status {status}"
 
-    status = _call_backward_f16(library, q, k, v, output, l, grad_output, causal=False)
-    print(f"  FP16 backward returned status: {status}")
-    assert status == UNSUPPORTED_DTYPE, f"Expected UNSUPPORTED_DTYPE ({UNSUPPORTED_DTYPE}), got {status}"
+    status, d_q, d_k, d_v = _call_backward_f16(library, q, k, v, output, l, grad_output, causal=False)
+    assert status == SUCCESS, f"CuFlash FP16 backward failed with status {status}"
 
-    print("  FP16 backward unsupported contract PASSED")
+    # PyTorch reference (compute in float32 for numerical stability)
+    q_ref = q.float().requires_grad_(True)
+    k_ref = k.float().requires_grad_(True)
+    v_ref = v.float().requires_grad_(True)
+    ref_output = _reference_attention(q_ref, k_ref, v_ref, causal=False)
+    ref_output.backward(grad_output.float())
+
+    # Compare with relaxed tolerance for FP16
+    d_q_diff = (d_q.float() - q_ref.grad).abs().max().item()
+    d_k_diff = (d_k.float() - k_ref.grad).abs().max().item()
+    d_v_diff = (d_v.float() - v_ref.grad).abs().max().item()
+
+    print(f"  dQ max diff: {d_q_diff:.2e}")
+    print(f"  dK max diff: {d_k_diff:.2e}")
+    print(f"  dV max diff: {d_v_diff:.2e}")
+
+    assert d_q_diff < 1e-1, f"dQ mismatch: {d_q_diff}"
+    assert d_k_diff < 1e-1, f"dK mismatch: {d_k_diff}"
+    assert d_v_diff < 1e-1, f"dV mismatch: {d_v_diff}"
+
+    print("  FP16 backward equivalence test PASSED")
     return True
 
 
@@ -500,7 +520,7 @@ def main():
         test_causal_mask,
         test_backward_gradients,
         test_fp16_forward_equivalence,
-        test_fp16_backward_unsupported,
+        test_fp16_backward_equivalence,
         test_different_shapes,
     ]
 
