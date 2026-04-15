@@ -2,42 +2,64 @@
 
 CuFlash-Attn 提供简洁的 C++ API，所有函数和类型定义在 `cuflash` 命名空间中。
 
+## 目录
+
+- [头文件](#头文件)
+- [前向传播](#前向传播)
+- [反向传播](#反向传播)
+- [C ABI 接口](#c-abi-接口用于-python-ctypes)
+- [张量布局](#张量布局)
+- [错误处理](#错误处理)
+- [支持的配置](#支持的配置)
+- [构建选项](#构建选项)
+- [GPU 架构支持](#gpu-架构支持)
+
+---
+
 ## 头文件
 
 ```cpp
 #include "flash_attention.h"
 ```
 
+---
+
 ## 前向传播
 
 ### `flash_attention_forward` (FP32)
 
+计算 FP32 精度的 FlashAttention 前向传播。
+
 ```cpp
 cuflash::FlashAttentionError flash_attention_forward(
-    const float* Q,          // 查询张量
-    const float* K,          // 键张量
-    const float* V,          // 值张量
-    float* O,                // 输出张量
-    float* L,                // logsumexp（反向传播需要）
-    int batch_size,          // 批大小
-    int num_heads,           // 注意力头数
-    int seq_len,             // 序列长度
-    int head_dim,            // 头维度（32, 64, 128）
-    float scale,             // 缩放因子，通常 1/√head_dim
+    const float* Q,          // 查询张量 [B, H, N, D]
+    const float* K,          // 键张量 [B, H, N, D]
+    const float* V,          // 值张量 [B, H, N, D]
+    float* O,                // 输出张量 [B, H, N, D]
+    float* L,                // logsumexp [B, H, N]（反向传播需要）
+    int batch_size,          // 批大小 B
+    int num_heads,           // 注意力头数 H
+    int seq_len,             // 序列长度 N
+    int head_dim,            // 头维度 D（32, 64, 128）
+    float scale,             // 缩放因子，通常 1/√D
     bool causal,             // 是否启用因果掩码
     cudaStream_t stream = 0  // CUDA 流
 );
 ```
 
+**返回值**: `FlashAttentionError::SUCCESS` 表示成功，其他值表示错误。
+
 ### `flash_attention_forward` (FP16)
+
+计算 FP16 精度的 FlashAttention 前向传播。内部使用 FP32 计算，输出转回 FP16。
 
 ```cpp
 cuflash::FlashAttentionError flash_attention_forward(
-    const half* Q,
-    const half* K,
-    const half* V,
-    half* O,
-    half* L,
+    const half* Q,           // 查询张量 [B, H, N, D]
+    const half* K,           // 键张量 [B, H, N, D]
+    const half* V,           // 值张量 [B, H, N, D]
+    half* O,                 // 输出张量 [B, H, N, D]
+    half* L,                 // logsumexp [B, H, N]
     int batch_size,
     int num_heads,
     int seq_len,
@@ -48,9 +70,13 @@ cuflash::FlashAttentionError flash_attention_forward(
 );
 ```
 
+---
+
 ## 反向传播
 
 ### `flash_attention_backward` (FP32)
+
+计算 FP32 精度的 FlashAttention 反向传播。
 
 ```cpp
 cuflash::FlashAttentionError flash_attention_backward(
@@ -59,7 +85,7 @@ cuflash::FlashAttentionError flash_attention_backward(
     const float* V,          // 值张量
     const float* O,          // 前向输出
     const float* L,          // 前向 logsumexp
-    const float* dO,         // 上游梯度
+    const float* dO,         // 上游梯度 [B, H, N, D]
     float* dQ,               // Q 的梯度（输出）
     float* dK,               // K 的梯度（输出）
     float* dV,               // V 的梯度（输出）
@@ -74,6 +100,8 @@ cuflash::FlashAttentionError flash_attention_backward(
 ```
 
 ### `flash_attention_backward` (FP16)
+
+计算 FP16 精度的 FlashAttention 反向传播。
 
 ```cpp
 cuflash::FlashAttentionError flash_attention_backward(
@@ -96,14 +124,14 @@ cuflash::FlashAttentionError flash_attention_backward(
 );
 ```
 
-> **注意**：FP16 反向传播当前未实现，调用将返回 `UNSUPPORTED_DTYPE`。
+---
 
-### C ABI 接口（用于 Python ctypes）
+## C ABI 接口（用于 Python ctypes）
 
 为方便从 Python 等语言调用，库提供了 C 语言 ABI 接口：
 
 ```c
-// 返回值为 cuflash::FlashAttentionError 的整数表示
+// FP32 前向传播
 int cuflash_attention_forward_f32(
     const float* Q, const float* K, const float* V,
     float* O, float* L,
@@ -111,6 +139,7 @@ int cuflash_attention_forward_f32(
     float scale, bool causal, cudaStream_t stream
 );
 
+// FP32 反向传播
 int cuflash_attention_backward_f32(
     const float* Q, const float* K, const float* V,
     const float* O, const float* L, const float* dO,
@@ -119,26 +148,48 @@ int cuflash_attention_backward_f32(
     float scale, bool causal, cudaStream_t stream
 );
 
-// FP16 版本类似：cuflash_attention_forward_f16 / cuflash_attention_backward_f16
+// FP16 前向传播
+int cuflash_attention_forward_f16(
+    const half* Q, const half* K, const half* V,
+    half* O, half* L,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
+);
+
+// FP16 反向传播
+int cuflash_attention_backward_f16(
+    const half* Q, const half* K, const half* V,
+    const half* O, const half* L, const half* dO,
+    half* dQ, half* dK, half* dV,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
+);
 ```
 
-这些函数具有 C 链接（`extern "C"`），可以直接通过 Python `ctypes` 调用。
+**返回值**: `FlashAttentionError` 枚举值的整数表示。
+
+---
 
 ## 张量布局
 
 所有张量使用 **行优先（row-major）** 布局：
 
-```
-Q, K, V, O: [batch_size, num_heads, seq_len, head_dim]
-L:          [batch_size, num_heads, seq_len]
-```
+| 张量 | 形状 |
+|------|------|
+| Q, K, V, O | `[batch_size, num_heads, seq_len, head_dim]` |
+| L | `[batch_size, num_heads, seq_len]` |
 
-内存中的偏移计算：
+### 内存偏移计算
 
 ```cpp
 // 访问 Q[b][h][s][d]
 size_t offset = ((b * num_heads + h) * seq_len + s) * head_dim + d;
+
+// 访问 L[b][h][s]
+size_t offset = (b * num_heads + h) * seq_len + s;
 ```
+
+---
 
 ## 错误处理
 
@@ -148,7 +199,7 @@ size_t offset = ((b * num_heads + h) * seq_len + s) * head_dim + d;
 enum class FlashAttentionError {
     SUCCESS = 0,
     INVALID_DIMENSION,      // 维度参数无效（≤ 0）
-    DIMENSION_MISMATCH,     // Q, K, V 维度不匹配（预留，当前未主动检查）
+    DIMENSION_MISMATCH,     // 预留，当前未返回
     NULL_POINTER,           // 输入或输出指针为空
     CUDA_ERROR,             // CUDA 运行时错误
     OUT_OF_MEMORY,          // GPU 显存不足
@@ -157,43 +208,71 @@ enum class FlashAttentionError {
 };
 ```
 
-**注意**：`DIMENSION_MISMATCH` 已预留但当前未实现主动检查，因为 API 未接收每个张量的独立形状信息。
-
 ### `get_error_string`
 
 ```cpp
 const char* get_error_string(FlashAttentionError error);
 ```
 
-返回错误码对应的可读字符串。当前原始指针 API 只能校验空指针、正整数维度与支持的 `head_dim`，不会主动检测独立的 Q/K/V 形状是否匹配。
+返回错误码对应的可读字符串。
 
-### 使用示例
+### 完整示例
 
 ```cpp
-auto err = cuflash::flash_attention_forward(
-    d_Q, d_K, d_V, d_O, d_L,
-    batch_size, num_heads, seq_len, head_dim,
-    1.0f / std::sqrt(static_cast<float>(head_dim)),
-    /*causal=*/true
-);
+#include "flash_attention.h"
+#include <iostream>
 
-if (err != cuflash::FlashAttentionError::SUCCESS) {
-    std::cerr << "FlashAttention error: "
-              << cuflash::get_error_string(err) << std::endl;
-    // 处理错误...
+int main() {
+    // ... 分配设备内存 d_Q, d_K, d_V, d_O, d_L ...
+    
+    float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+    
+    auto err = cuflash::flash_attention_forward(
+        d_Q, d_K, d_V, d_O, d_L,
+        batch_size, num_heads, seq_len, head_dim,
+        scale,
+        /*causal=*/true
+    );
+    
+    if (err != cuflash::FlashAttentionError::SUCCESS) {
+        std::cerr << "FlashAttention error: "
+                  << cuflash::get_error_string(err) << std::endl;
+        return 1;
+    }
+    
+    // 反向传播
+    err = cuflash::flash_attention_backward(
+        d_Q, d_K, d_V, d_O, d_L, d_dO,
+        d_dQ, d_dK, d_dV,
+        batch_size, num_heads, seq_len, head_dim,
+        scale, true
+    );
+    
+    return 0;
 }
 ```
+
+---
 
 ## 支持的配置
 
 | 参数 | 支持范围 |
 |------|---------|
 | `head_dim` | 32, 64, 128 |
-| 数据类型 | `float` (FP32)，`half` (FP16，仅前向) |
+| 数据类型 | `float` (FP32)，`half` (FP16) |
 | 因果掩码 | 可选（`bool causal`） |
 | 批大小 | ≥ 1 |
 | 注意力头数 | ≥ 1 |
 | 序列长度 | ≥ 1 |
+
+### 数据类型支持矩阵
+
+| 数据类型 | 前向传播 | 反向传播 |
+|----------|----------|----------|
+| `float` (FP32) | ✅ | ✅ |
+| `half` (FP16) | ✅ | ✅ |
+
+---
 
 ## 构建选项
 
@@ -201,8 +280,11 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 |-----------|--------|------|
 | `BUILD_TESTS` | ON | 构建测试套件 |
 | `ENABLE_RAPIDCHECK` | OFF | 启用 RapidCheck 属性测试 |
-| `BUILD_SHARED_LIBS` | ON | 构建共享库（可用于本地集成测试与下游链接） |
+| `BUILD_SHARED_LIBS` | ON | 构建共享库 |
+| `BUILD_EXAMPLES` | ON | 构建示例程序 |
 | `ENABLE_FAST_MATH` | OFF | 启用 `--use_fast_math`（更快但精度较低） |
+
+---
 
 ## GPU 架构支持
 
@@ -213,3 +295,9 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 | Ampere | sm_80, sm_86 | A100, RTX 3090 |
 | Ada Lovelace | sm_89 | RTX 4090 |
 | Hopper | sm_90 | H100 |
+
+默认构建支持所有上述架构。如需仅编译特定架构：
+
+```bash
+cmake .. -DCMAKE_CUDA_ARCHITECTURES=86  # 仅支持 RTX 3090/A100
+```

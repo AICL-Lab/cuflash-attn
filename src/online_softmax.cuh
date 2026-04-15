@@ -11,12 +11,12 @@ namespace cuflash {
 struct OnlineSoftmaxState {
     float m;  // Current maximum value
     float l;  // Sum of exp(x - m)
-    
+
     __device__ __forceinline__ void init() {
         m = -INFINITY;
         l = 0.0f;
     }
-    
+
     // Update state with a new block's statistics
     // new_m: max value in the new block
     // new_l: sum of exp(x - new_m) in the new block
@@ -26,16 +26,12 @@ struct OnlineSoftmaxState {
         l = l * expf(m - m_max) + new_l * expf(new_m - m_max);
         m = m_max;
     }
-    
+
     // Get the logsumexp value: m + log(l)
-    __device__ __forceinline__ float logsumexp() const {
-        return m + logf(l);
-    }
-    
+    __device__ __forceinline__ float logsumexp() const { return m + logf(l); }
+
     // Get the normalization factor for final output
-    __device__ __forceinline__ float get_normalizer() const {
-        return 1.0f / l;
-    }
+    __device__ __forceinline__ float get_normalizer() const { return 1.0f / l; }
 };
 
 // Compute row-wise max for a tile stored in registers
@@ -44,7 +40,7 @@ struct OnlineSoftmaxState {
 template<int N>
 __device__ __forceinline__ float row_max(const float* tile) {
     float max_val = -INFINITY;
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < N; i++) {
         max_val = fmaxf(max_val, tile[i]);
     }
@@ -58,7 +54,7 @@ __device__ __forceinline__ float row_max(const float* tile) {
 template<int N>
 __device__ __forceinline__ float row_sum_exp(const float* tile, float max_val) {
     float sum = 0.0f;
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < N; i++) {
         sum += expf(tile[i] - max_val);
     }
@@ -72,7 +68,7 @@ __device__ __forceinline__ float row_sum_exp(const float* tile, float max_val) {
 template<int N>
 __device__ __forceinline__ void apply_softmax(float* tile, float max_val, float sum_exp) {
     float inv_sum = 1.0f / sum_exp;
-    #pragma unroll
+#pragma unroll
     for (int i = 0; i < N; i++) {
         tile[i] = expf(tile[i] - max_val) * inv_sum;
     }
@@ -80,7 +76,7 @@ __device__ __forceinline__ void apply_softmax(float* tile, float max_val, float 
 
 // Warp-level reduction for max
 __device__ __forceinline__ float warp_reduce_max(float val) {
-    #pragma unroll
+#pragma unroll
     for (int offset = 16; offset > 0; offset /= 2) {
         val = fmaxf(val, __shfl_xor_sync(0xffffffff, val, offset));
     }
@@ -89,7 +85,7 @@ __device__ __forceinline__ float warp_reduce_max(float val) {
 
 // Warp-level reduction for sum
 __device__ __forceinline__ float warp_reduce_sum(float val) {
-    #pragma unroll
+#pragma unroll
     for (int offset = 16; offset > 0; offset /= 2) {
         val += __shfl_xor_sync(0xffffffff, val, offset);
     }
@@ -101,15 +97,17 @@ template<int BLOCK_SIZE>
 __device__ __forceinline__ float block_reduce_max(float val, float* shared) {
     int lane = threadIdx.x % 32;
     int wid = threadIdx.x / 32;
-    
+
     val = warp_reduce_max(val);
-    
-    if (lane == 0) shared[wid] = val;
+
+    if (lane == 0)
+        shared[wid] = val;
     __syncthreads();
-    
+
     val = (threadIdx.x < BLOCK_SIZE / 32) ? shared[lane] : -INFINITY;
-    if (wid == 0) val = warp_reduce_max(val);
-    
+    if (wid == 0)
+        val = warp_reduce_max(val);
+
     return val;
 }
 
@@ -118,16 +116,18 @@ template<int BLOCK_SIZE>
 __device__ __forceinline__ float block_reduce_sum(float val, float* shared) {
     int lane = threadIdx.x % 32;
     int wid = threadIdx.x / 32;
-    
+
     val = warp_reduce_sum(val);
-    
-    if (lane == 0) shared[wid] = val;
+
+    if (lane == 0)
+        shared[wid] = val;
     __syncthreads();
-    
+
     val = (threadIdx.x < BLOCK_SIZE / 32) ? shared[lane] : 0.0f;
-    if (wid == 0) val = warp_reduce_sum(val);
-    
+    if (wid == 0)
+        val = warp_reduce_sum(val);
+
     return val;
 }
 
-} // namespace cuflash
+}  // namespace cuflash

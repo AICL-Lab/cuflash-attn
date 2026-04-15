@@ -10,13 +10,12 @@ A FlashAttention implementation in CUDA C++ from scratch. This is primarily a re
 ## Features
 
 - **Forward Pass**: Efficient attention computation with O(N) memory complexity (FP32 and FP16)
-- **Backward Pass**: Gradient computation using recomputation strategy (FP32 only; FP16 backward not yet implemented)
+- **Backward Pass**: Gradient computation using recomputation strategy (FP32 and FP16)
 - **Causal Masking**: Support for autoregressive models
 - **Online Softmax**: Numerically stable softmax without storing O(N²) attention matrix
 
 ## Known Limitations
 
-- **FP16 backward pass is not implemented** - calling with `half` pointers will return `UNSUPPORTED_DTYPE`
 - **head_dim support**: Only 32, 64, and 128 are supported
 - **High shared memory usage**: May require GPUs with extended shared memory support for head_dim=128
 - **DIMENSION_MISMATCH error**: Currently not actively checked (API does not receive per-tensor shape metadata)
@@ -49,19 +48,21 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j$(nproc)
 ```
 
-### Build Options
-
-- `BUILD_TESTS=ON/OFF`: Build test suite (default: ON)
-- `ENABLE_RAPIDCHECK=ON/OFF`: Enable RapidCheck property tests (default: OFF)
-- `BUILD_SHARED_LIBS=ON/OFF`: Build the shared library (default: ON)
-- `BUILD_EXAMPLES=ON/OFF`: Build the example binary (default: ON)
-- `ENABLE_FAST_MATH=ON/OFF`: Enable `--use_fast_math` for CUDA (faster but less precise, default: OFF)
-
 If CMake cannot find CUDA, configure it explicitly:
 
 ```bash
 cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 ```
+
+### Build Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `BUILD_TESTS` | ON | Build test suite |
+| `ENABLE_RAPIDCHECK` | OFF | Enable RapidCheck property tests |
+| `BUILD_SHARED_LIBS` | ON | Build shared library |
+| `BUILD_EXAMPLES` | ON | Build example binary |
+| `ENABLE_FAST_MATH` | OFF | Enable `--use_fast_math` (faster but less precise) |
 
 ## Usage
 
@@ -91,9 +92,11 @@ err = cuflash::flash_attention_backward(
 
 ### Supported Configurations
 
-- **head_dim**: 32, 64, 128
-- **Data types**: float32; float16 is currently forward-only
-- **Causal masking**: Optional
+| Parameter | Supported Values |
+|-----------|------------------|
+| `head_dim` | 32, 64, 128 |
+| Data types | `float` (FP32), `half` (FP16, both forward and backward) |
+| Causal masking | Optional |
 
 ## Running Tests
 
@@ -111,7 +114,6 @@ python tests/test_pytorch_comparison.py
 
 Build the shared library first. Preset builds place artifacts under `build/<preset>/`, for example `build/default/` or `build/release/`. You can also override the library path with `CUFLASH_LIB=/absolute/path/to/libcuflash_attn.so`.
 
-
 ## Algorithm
 
 This implementation follows the FlashAttention algorithm:
@@ -122,19 +124,23 @@ This implementation follows the FlashAttention algorithm:
 
 ### Memory Complexity
 
-- Standard Attention: O(N²) for attention matrix
-- FlashAttention: O(N) - only stores output and logsumexp
+| Method | Forward Memory | Backward Memory |
+|--------|----------------|-----------------|
+| Standard Attention | O(N²) | O(N²) |
+| FlashAttention | O(N) | O(N) |
 
 ## Project Structure
 
 ```
 ├── include/
-│   └── flash_attention.h      # Public API header
+│   └── flash_attention.h          # Public API header
 ├── src/
 │   ├── flash_attention_api.cu     # API implementation
-│   ├── flash_attention_forward.cu # Forward kernel
-│   ├── flash_attention_backward.cu# Backward kernel
-│   ├── flash_attention_fp16.cu    # FP16 support
+│   ├── flash_attention_forward.cu # FP32 forward kernel
+│   ├── flash_attention_backward.cu# FP32 backward kernel
+│   ├── flash_attention_fp16.cu    # FP16 forward kernel
+│   ├── flash_attention_backward_fp16.cu # FP16 backward kernel
+│   ├── kernel_launch_utils.cuh    # Kernel launch utilities
 │   ├── online_softmax.cuh         # Online softmax utilities
 │   └── matmul.cuh                 # Matrix multiplication helpers
 ├── tests/
@@ -149,8 +155,7 @@ This implementation follows the FlashAttention algorithm:
 ├── examples/
 │   └── basic_usage.cu             # Usage example
 ├── CMakeLists.txt
-├── CMakePresets.json           # Build presets
-└── README.md
+└── CMakePresets.json              # Build presets
 ```
 
 ## Error Handling
@@ -164,14 +169,26 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 
 ### Error Codes
 
-- `SUCCESS`: Operation completed successfully
-- `INVALID_DIMENSION`: Dimension parameters are invalid
-- `DIMENSION_MISMATCH`: Reserved for richer shape validation APIs; not emitted by the current raw-pointer interface
-- `NULL_POINTER`: Input or output pointer is null
-- `CUDA_ERROR`: CUDA runtime error occurred
-- `OUT_OF_MEMORY`: Insufficient GPU memory
-- `UNSUPPORTED_HEAD_DIM`: head_dim must be 32, 64, or 128
-- `UNSUPPORTED_DTYPE`: Data type not supported for this operation
+| Error Code | Description |
+|------------|-------------|
+| `SUCCESS` | Operation completed successfully |
+| `INVALID_DIMENSION` | Dimension parameters are invalid (≤ 0) |
+| `DIMENSION_MISMATCH` | Reserved for future use |
+| `NULL_POINTER` | Input or output pointer is null |
+| `CUDA_ERROR` | CUDA runtime error occurred |
+| `OUT_OF_MEMORY` | Insufficient GPU memory |
+| `UNSUPPORTED_HEAD_DIM` | head_dim must be 32, 64, or 128 |
+| `UNSUPPORTED_DTYPE` | Data type not supported for this operation |
+
+## GPU Architecture Support
+
+| Architecture | Compute Capability | Representative GPU |
+|--------------|-------------------|-------------------|
+| Volta | sm_70 | V100 |
+| Turing | sm_75 | RTX 2080 Ti |
+| Ampere | sm_80, sm_86 | A100, RTX 3090 |
+| Ada Lovelace | sm_89 | RTX 4090 |
+| Hopper | sm_90 | H100 |
 
 ## License
 

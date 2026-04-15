@@ -10,13 +10,12 @@
 ## 特性
 
 - **前向传播**: O(N) 内存复杂度的高效注意力计算（支持 FP32 和 FP16）
-- **反向传播**: 基于重计算策略的梯度计算（仅 FP32；FP16 反向传播尚未实现）
+- **反向传播**: 基于重计算策略的梯度计算（支持 FP32 和 FP16）
 - **因果掩码**: 支持自回归模型
 - **Online Softmax**: 无需存储 O(N²) 注意力矩阵的数值稳定 softmax
 
 ## 已知限制
 
-- **FP16 反向传播未实现** - 使用 `half` 指针调用将返回 `UNSUPPORTED_DTYPE`
 - **head_dim 支持**: 仅支持 32、64、128
 - **高共享内存使用**: head_dim=128 时可能需要支持扩展共享内存的 GPU
 - **DIMENSION_MISMATCH 错误**: 当前未主动检查（API 未接收各张量的形状元数据）
@@ -41,13 +40,29 @@ cmake --preset release      # 优化构建
 cmake --build --preset release
 ```
 
+### 手动构建
+
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j$(nproc)
+```
+
+如果 CMake 找不到 CUDA，手动指定：
+
+```bash
+cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+```
+
 ### 构建选项
 
-- `BUILD_TESTS=ON/OFF`: 构建测试套件（默认: ON）
-- `ENABLE_RAPIDCHECK=ON/OFF`: 启用 RapidCheck 属性测试（默认: OFF）
-- `BUILD_SHARED_LIBS=ON/OFF`: 构建共享库（默认: ON）
-- `BUILD_EXAMPLES=ON/OFF`: 构建示例程序（默认: ON）
-- `ENABLE_FAST_MATH=ON/OFF`: 启用 `--use_fast_math`（更快但精度较低，默认: OFF）
+| 选项 | 默认值 | 说明 |
+|------|--------|------|
+| `BUILD_TESTS` | ON | 构建测试套件 |
+| `ENABLE_RAPIDCHECK` | OFF | 启用 RapidCheck 属性测试 |
+| `BUILD_SHARED_LIBS` | ON | 构建共享库 |
+| `BUILD_EXAMPLES` | ON | 构建示例程序 |
+| `ENABLE_FAST_MATH` | OFF | 启用 `--use_fast_math`（更快但精度较低） |
 
 ## 使用
 
@@ -65,42 +80,82 @@ cuflash::FlashAttentionError err = cuflash::flash_attention_forward(
     causal,            // 启用因果掩码
     stream             // CUDA 流（可选）
 );
+
+// 反向传播
+err = cuflash::flash_attention_backward(
+    Q, K, V, O, L, dO, // 输入和上游梯度
+    dQ, dK, dV,        // 输出梯度
+    batch_size, num_heads, seq_len, head_dim,
+    scale, causal, stream
+);
 ```
 
 ### 支持的配置
 
-- **head_dim**: 32, 64, 128
-- **数据类型**: float32；float16 当前仅支持前向
-- **因果掩码**: 可选
+| 参数 | 支持范围 |
+|------|---------|
+| `head_dim` | 32, 64, 128 |
+| 数据类型 | `float` (FP32)，`half` (FP16，前后向均支持) |
+| 因果掩码 | 可选 |
+
+## 运行测试
+
+```bash
+ctest --preset default --output-on-failure
+```
+
+GoogleTest 通过 CMake FetchContent 自动下载，无需手动安装。
+
+### PyTorch 对比测试
+
+```bash
+python tests/test_pytorch_comparison.py
+```
+
+先构建共享库。Preset 构建产物位于 `build/<preset>/`，例如 `build/default/` 或 `build/release/`。也可通过环境变量 `CUFLASH_LIB=/absolute/path/to/libcuflash_attn.so` 指定库路径。
 
 ## 算法
 
 基于 FlashAttention 算法：
 
-1. **分块**: 将 Q, K, V 分成适合 SRAM 的块
+1. **分块（Tiling）**: 将 Q, K, V 分成适合 SRAM 的块
 2. **Online Softmax**: 增量计算 softmax，不存储完整注意力矩阵
-3. **重计算**: 反向传播中重新计算注意力权重而非存储
+3. **重计算（Recomputation）**: 反向传播中重新计算注意力权重而非存储
 
 ### 内存复杂度
 
-- 标准 Attention: O(N²)
-- FlashAttention: O(N)
+| 方法 | 前向额外内存 | 反向额外内存 |
+|------|-------------|-------------|
+| 标准 Attention | O(N²) | O(N²) |
+| FlashAttention | O(N) | O(N) |
 
 ## 项目结构
 
 ```
-├── include/flash_attention.h      # 公共 API 头文件
+├── include/
+│   └── flash_attention.h          # 公共 API 头文件
 ├── src/
 │   ├── flash_attention_api.cu     # API 实现
-│   ├── flash_attention_forward.cu # 前向 kernel
-│   ├── flash_attention_backward.cu# 反向 kernel
-│   ├── flash_attention_fp16.cu    # FP16 支持
+│   ├── flash_attention_forward.cu # FP32 前向 kernel
+│   ├── flash_attention_backward.cu# FP32 反向 kernel
+│   ├── flash_attention_fp16.cu    # FP16 前向 kernel
+│   ├── flash_attention_backward_fp16.cu # FP16 反向 kernel
+│   ├── kernel_launch_utils.cuh    # Kernel 启动工具
 │   ├── online_softmax.cuh         # Online softmax 工具
 │   └── matmul.cuh                 # 矩阵乘法辅助
-├── tests/                         # 测试套件
-├── examples/basic_usage.cu        # 使用示例
+├── tests/
+│   ├── test_forward.cu            # 前向传播测试
+│   ├── test_backward.cu           # 反向传播测试
+│   ├── test_causal_mask.cu        # 因果掩码测试
+│   ├── test_online_softmax.cu     # Online softmax 测试
+│   ├── test_error_handling.cu     # 错误处理测试
+│   ├── test_dtype.cu              # 数据类型测试
+│   ├── test_numerical_stability.cu# 数值稳定性测试
+│   └── test_pytorch_comparison.py # PyTorch 对比测试
+├── examples/
+│   └── basic_usage.cu             # 使用示例
 ├── CMakeLists.txt
-└── CMakePresets.json
+└── CMakePresets.json              # 构建预设
 ```
 
 ## 错误处理
@@ -114,14 +169,26 @@ if (err != cuflash::FlashAttentionError::SUCCESS) {
 
 ### 错误码
 
-- `SUCCESS`: 操作成功
-- `INVALID_DIMENSION`: 维度参数无效
-- `DIMENSION_MISMATCH`: 为更丰富的形状校验接口预留；当前原始指针接口不会返回该错误
-- `NULL_POINTER`: 输入或输出指针为空
-- `CUDA_ERROR`: CUDA 运行时错误
-- `OUT_OF_MEMORY`: GPU 显存不足
-- `UNSUPPORTED_HEAD_DIM`: head_dim 必须为 32, 64 或 128
-- `UNSUPPORTED_DTYPE`: 该操作不支持的数据类型
+| 错误码 | 说明 |
+|--------|------|
+| `SUCCESS` | 操作成功 |
+| `INVALID_DIMENSION` | 维度参数无效（≤ 0） |
+| `DIMENSION_MISMATCH` | 预留错误码，当前未返回 |
+| `NULL_POINTER` | 输入或输出指针为空 |
+| `CUDA_ERROR` | CUDA 运行时错误 |
+| `OUT_OF_MEMORY` | GPU 显存不足 |
+| `UNSUPPORTED_HEAD_DIM` | head_dim 必须为 32, 64 或 128 |
+| `UNSUPPORTED_DTYPE` | 该操作不支持的数据类型 |
+
+## GPU 架构支持
+
+| 架构 | 计算能力 | 代表 GPU |
+|------|---------|---------|
+| Volta | sm_70 | V100 |
+| Turing | sm_75 | RTX 2080 Ti |
+| Ampere | sm_80, sm_86 | A100, RTX 3090 |
+| Ada Lovelace | sm_89 | RTX 4090 |
+| Hopper | sm_90 | H100 |
 
 ## 许可证
 

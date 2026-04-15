@@ -40,9 +40,7 @@ inline FlashAttentionError prepare_dynamic_smem_launch(const void* kernel_func, 
 
     if (smem_size > 48 * 1024) {
         cudaError_t err = cudaFuncSetAttribute(
-            kernel_func,
-            cudaFuncAttributeMaxDynamicSharedMemorySize,
-            static_cast<int>(smem_size));
+            kernel_func, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(smem_size));
         if (err != cudaSuccess) {
             return FlashAttentionError::CUDA_ERROR;
         }
@@ -51,4 +49,4 @@ inline FlashAttentionError prepare_dynamic_smem_launch(const void* kernel_func, 
     return FlashAttentionError::SUCCESS;
 }
 
-} // namespace cuflash
+}  // namespace cuflash

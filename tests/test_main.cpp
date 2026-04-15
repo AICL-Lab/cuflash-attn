@@ -1,8 +1,8 @@
-#include <cstring>
-#include <iostream>
-
 #include <cuda_runtime.h>
 #include <gtest/gtest.h>
+
+#include <cstring>
+#include <iostream>
 
 namespace {
 
@@ -21,7 +21,7 @@ bool cuda_device_available() {
     return err == cudaSuccess && device_count > 0;
 }
 
-} // namespace
+}  // namespace
 
 int main(int argc, char** argv) {
     const bool listing_tests = is_listing_tests(argc, argv);

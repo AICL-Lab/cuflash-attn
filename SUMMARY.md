@@ -1,15 +1,21 @@
-# Table of contents
+# CuFlash-Attn 文档
 
-* [CuFlash-Attn](README.md)
+一个从零实现的 CUDA C++ FlashAttention 库。
 
-## 文档
+---
 
-* [算法详解](docs/algorithm.md)
-* [API 参考](docs/api.md)
-* [构建指南](docs/building.md)
+## 快速导航
 
-## Changelog
+- [项目主页](README.md) | [简体中文](README.zh-CN.md)
+- [更新日志](CHANGELOG.md)
 
-* [2026-03-10 GitHub Pages 优化](changelog/2026-03-10_pages-optimization.md)
-* [2026-03-09 Workflow 优化](changelog/2026-03-09_workflow-optimization.md)
-* [2026-02-13 性能优化与 Bug 修复](changelog/2026-02-13_optimization.md)
+---
+
+## 入门指南
+
+- [构建指南](docs/building.md) - 环境要求、构建步骤、配置选项
+
+## 核心文档
+
+- [算法详解](docs/algorithm.md) - FlashAttention 原理、分块策略、内存优化
+- [API 参考](docs/api.md) - 完整的 C++ API 和 C ABI 接口文档
