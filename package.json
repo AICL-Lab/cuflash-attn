@@ -1,17 +1,23 @@
 {
   "name": "cuflash-attn-docs",
   "private": true,
-  "version": "0.1.0",
-  "description": "Documentation toolchain for CuFlash-Attn",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "High-performance documentation for CuFlash-Attn built with VitePress",
   "scripts": {
-    "docs:build": "honkit build . _site"
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview",
+    "docs:serve": "vitepress serve"
   },
-  "dependencies": {
-    "gitbook-plugin-back-to-top-button": "0.1.4",
-    "gitbook-plugin-copy-code-button": "0.0.2",
-    "gitbook-plugin-expandable-chapters": "0.2.0",
-    "gitbook-plugin-highlight": "2.0.3",
-    "gitbook-plugin-search-pro": "2.0.2",
-    "honkit": "6.1.7"
+  "devDependencies": {
+    "@vite-pwa/vitepress": "^0.5.0",
+    "vitepress": "^1.2.3",
+    "vite": "^5.2.11",
+    "vue": "^3.4.27"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

@@ -1,26 +1,24 @@
 name: Deploy Docs
 
 on:
-  pull_request:
-    paths:
-      - "README.md"
-      - "README.zh-CN.md"
-      - "SUMMARY.md"
-      - "docs/**"
-      - "changelog/**"
-      - "book.json"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/pages.yml"
   push:
     branches: [master, main]
     paths:
+      - "docs/**"
+      - ".vitepress/**"
       - "README.md"
       - "README.zh-CN.md"
-      - "SUMMARY.md"
+      - "CHANGELOG.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
       - "docs/**"
-      - "changelog/**"
-      - "book.json"
+      - ".vitepress/**"
+      - "README.md"
+      - "README.zh-CN.md"
+      - "CHANGELOG.md"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/pages.yml"
@@ -39,46 +37,38 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          sparse-checkout: |
-            README.md
-            README.zh-CN.md
-            SUMMARY.md
-            book.json
-            package.json
-            package-lock.json
-            docs
-            changelog
+          fetch-depth: 0
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
-          cache-dependency-path: package-lock.json
 
-      - name: Install docs dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Build docs
+      - name: Build with VitePress
         run: npm run docs:build
+        env:
+          NODE_ENV: production
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
-          path: _site
+          path: .vitepress/dist
 
   deploy:
     if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

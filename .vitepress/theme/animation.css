@@ -1,0 +1,410 @@
+/* ============================================
+   CuFlash-Attn Animations
+   Modern GPU-inspired animations
+   ============================================ */
+
+/* Page Transitions */
+.page-transitioning .VPContent {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+/* Fade In Up Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* GPU Flow Animation */
+@keyframes gpuFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Glow Pulse */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(63, 131, 248, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(63, 131, 248, 0.5);
+  }
+}
+
+/* Shimmer Effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Float Animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Data Stream */
+@keyframes dataStream {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 100%;
+  }
+}
+
+/* Animated Gradient Border */
+@keyframes gradientBorder {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Animate on Scroll Classes */
+.animate-on-scroll {
+  opacity: 0;
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-on-scroll.is-visible {
+  opacity: 1;
+}
+
+.animate-fade-up {
+  transform: translateY(40px);
+}
+
+.animate-fade-up.is-visible {
+  transform: translateY(0);
+}
+
+.animate-fade-left {
+  transform: translateX(-40px);
+}
+
+.animate-fade-left.is-visible {
+  transform: translateX(0);
+}
+
+.animate-fade-right {
+  transform: translateX(40px);
+}
+
+.animate-fade-right.is-visible {
+  transform: translateX(0);
+}
+
+.animate-scale {
+  transform: scale(0.8);
+}
+
+.animate-scale.is-visible {
+  transform: scale(1);
+}
+
+/* Feature Card Entrance */
+.feature-card {
+  animation: fadeInUp 0.6s ease backwards;
+}
+
+.feature-card:nth-child(1) { animation-delay: 0.1s; }
+.feature-card:nth-child(2) { animation-delay: 0.2s; }
+.feature-card:nth-child(3) { animation-delay: 0.3s; }
+.feature-card:nth-child(4) { animation-delay: 0.4s; }
+.feature-card:nth-child(5) { animation-delay: 0.5s; }
+.feature-card:nth-child(6) { animation-delay: 0.6s; }
+
+/* Hero Text Gradient Animation */
+.VPHero .name {
+  background-size: 200% 200%;
+  animation: gpuFlow 5s ease infinite;
+}
+
+/* Loading Skeleton */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--vp-c-bg-soft) 25%,
+    var(--vp-c-bg) 50%,
+    var(--vp-c-bg-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Code Block Highlight Animation */
+.vp-doc pre {
+  position: relative;
+}
+
+.vp-doc pre::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--vp-c-brand), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.vp-doc pre:hover::before {
+  opacity: 1;
+}
+
+/* Link Underline Animation */
+.vp-doc a {
+  position: relative;
+}
+
+.vp-doc a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--vp-c-brand);
+  transition: width 0.3s ease;
+}
+
+.vp-doc a:hover::after {
+  width: 100%;
+}
+
+/* Button Ripple Effect */
+.VPButton {
+  position: relative;
+  overflow: hidden;
+}
+
+.VPButton::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.VPButton:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* Table Row Hover */
+.vp-doc tr {
+  transition: background-color 0.2s;
+}
+
+.vp-doc tr:hover {
+  background-color: var(--vp-c-bg-soft);
+}
+
+/* Sidebar Item Animation */
+.VPSidebarItem .item {
+  transition: all 0.2s;
+}
+
+.VPSidebarItem .item:hover {
+  transform: translateX(4px);
+}
+
+/* Search Modal Animation */
+.DocSearch-Modal {
+  animation: scaleIn 0.2s ease;
+}
+
+/* Custom Block Icon Animation */
+.vp-doc .custom-block::before {
+  content: '';
+  display: inline-block;
+  margin-right: 0.5em;
+  animation: float 3s ease-in-out infinite;
+}
+
+.vp-doc .custom-block.tip::before { content: '💡'; }
+.vp-doc .custom-block.warning::before { content: '⚠️'; }
+.vp-doc .custom-block.danger::before { content: '🚨'; }
+.vp-doc .custom-block.info::before { content: 'ℹ️'; }
+
+/* Scroll Progress Indicator */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--vp-c-brand), var(--vp-c-brand-light));
+  z-index: 1000;
+  transition: width 0.1s;
+}
+
+/* GPU Grid Background */
+.gpu-grid {
+  background-image: 
+    linear-gradient(rgba(63, 131, 248, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(63, 131, 248, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: dataStream 20s linear infinite;
+}
+
+/* Dark Mode Glow */
+.dark .VPHero .name {
+  text-shadow: 0 0 30px rgba(96, 165, 250, 0.3);
+}
+
+/* Perf Counter Style */
+.perf-counter {
+  font-family: var(--vp-font-family-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--vp-c-brand);
+}
+
+/* Memory Visualizer */
+.memory-block {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin: 1px;
+  border-radius: 2px;
+  background: var(--vp-c-brand);
+  animation: fadeInUp 0.3s ease backwards;
+}
+
+.memory-block.empty {
+  background: var(--vp-c-bg-soft);
+}
+
+/* CUDA Architecture Badges */
+.arch-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 4px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  transition: all 0.2s;
+}
+
+.arch-badge:hover {
+  border-color: var(--vp-c-brand);
+  color: var(--vp-c-brand);
+  transform: translateY(-1px);
+}
+
+/* Performance Chart Animation */
+.chart-bar {
+  animation: growWidth 1s ease backwards;
+  transform-origin: left;
+}
+
+@keyframes growWidth {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Attention Pattern Visualizer */
+.attention-pattern {
+  display: grid;
+  gap: 2px;
+  padding: 1rem;
+  background: var(--vp-c-bg-alt);
+  border-radius: 8px;
+}
+
+.attention-cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  transition: transform 0.2s;
+}
+
+.attention-cell:hover {
+  transform: scale(1.2);
+  z-index: 1;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
