@@ -1,8 +1,11 @@
 {
-  "title": "CuFlash-Attn",
-  "description": "从零实现的高性能 CUDA C++ FlashAttention — 算法详解、API 参考与构建指南",
+  "title": "CuFlash-Attn Documentation",
+  "description": "CuFlash-Attn — 从零实现的高性能 CUDA C++ FlashAttention",
   "language": "zh-hans",
   "gitbook": ">=3.2.0",
+  "structure": {
+    "readme": "SUMMARY.md"
+  },
   "links": {
     "sidebar": {
       "GitHub": "https://github.com/LessUp/cuflash-attn"
@@ -20,7 +23,10 @@
   ],
   "pluginsConfig": {
     "search-pro": {
-      "maxSuggestions": 8
+      "maxSuggestions": 10,
+      "search": {
+        "placeholder": "搜索文档..."
+      }
     }
   }
 }

@@ -2,199 +2,203 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
 [English](README.md) | 简体中文
 
-从零实现的 CUDA C++ FlashAttention。本项目主要作为参考/教学实现，用于展示 FlashAttention 算法；对于追求极致性能的生产环境，建议使用 FlashAttention-2 等成熟库。
+> 从零实现的 CUDA C++ FlashAttention —— 主要用于教育和参考目的。
 
-## 特性
+CuFlash-Attn 提供了 FlashAttention 算法的高效、IO 感知实现，具有 O(N) 内存复杂度，并支持 FP32 和 FP16 精度。
 
-- **前向传播**: O(N) 内存复杂度的高效注意力计算（支持 FP32 和 FP16）
-- **反向传播**: 基于重计算策略的梯度计算（支持 FP32 和 FP16）
-- **因果掩码**: 支持自回归模型
-- **Online Softmax**: 无需存储 O(N²) 注意力矩阵的数值稳定 softmax
+---
 
-## 已知限制
+## ✨ 主要特性
 
-- **head_dim 支持**: 仅支持 32、64、128
-- **高共享内存使用**: head_dim=128 时可能需要支持扩展共享内存的 GPU
-- **DIMENSION_MISMATCH 错误**: 当前未主动检查（API 未接收各张量的形状元数据）
+| 特性 | 说明 |
+|------|------|
+| ⚡ **O(N) 内存** | 相比标准注意力的 O(N²)，线性内存复杂复杂度 |
+| 🔢 **双精度支持** | 完整支持前向和反向传播的 FP32 和 FP16 |
+| 🔁 **完整训练** | 前向和反向传播，包含梯度计算 |
+| 🎭 **因果掩码** | 内置自回归模型支持 |
+| 🔧 **易于集成** | C++ 和 C ABI 接口，便于 Python 通过 ctypes 调用 |
+| 🏎️ **多架构 CUDA** | 针对 sm_70 至 sm_90 优化（V100 到 H100） |
+| 📚 **双语文档** | 完整的中英文文档 |
 
-## 环境要求
+---
 
-- CUDA Toolkit 11.0+
-- CMake 3.18+
-- C++17 编译器
-- （可选）PyTorch 用于对比测试
+## 📋 环境要求
 
-## 构建
+| 要求 | 最低版本 | 说明 |
+|------|----------|------|
+| CUDA Toolkit | 11.0 | 包含 nvcc 编译器 |
+| CMake | 3.18 | 构建系统 |
+| C++ 编译器 | C++17 | GCC 7+、Clang 5+ 或 MSVC 2017+ |
+| GPU | 计算能力 7.0+ | 推荐使用 V100 或更新 |
 
-### 使用 CMake Presets（推荐）
+---
+
+## 🚀 快速开始
+
+### 安装
 
 ```bash
-cmake --preset default      # Debug 构建 + 测试
-cmake --build --preset default
-ctest --preset default
+git clone https://github.com/LessUp/cuflash-attn.git
+cd cuflash-attn
 
-cmake --preset release      # 优化构建
+# 使用 CMake preset 构建（推荐）
+cmake --preset release
 cmake --build --preset release
+
+# 运行测试
+ctest --preset release --output-on-failure
 ```
 
-### 手动构建
-
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j$(nproc)
-```
-
-如果 CMake 找不到 CUDA，手动指定：
-
-```bash
-cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
-```
-
-### 构建选项
-
-| 选项 | 默认值 | 说明 |
-|------|--------|------|
-| `BUILD_TESTS` | ON | 构建测试套件 |
-| `ENABLE_RAPIDCHECK` | OFF | 启用 RapidCheck 属性测试 |
-| `BUILD_SHARED_LIBS` | ON | 构建共享库 |
-| `BUILD_EXAMPLES` | ON | 构建示例程序 |
-| `ENABLE_FAST_MATH` | OFF | 启用 `--use_fast_math`（更快但精度较低） |
-
-## 使用
-
-### C++ API
+### 基本用法
 
 ```cpp
 #include "flash_attention.h"
 
-// 前向传播
-cuflash::FlashAttentionError err = cuflash::flash_attention_forward(
-    Q, K, V,           // 输入张量 [batch, heads, seq_len, head_dim]
-    O, L,              // 输出张量和 logsumexp
+// 使用因果掩码计算注意力
+float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+
+auto err = cuflash::flash_attention_forward(
+    d_Q, d_K, d_V,     // 输入张量 [B, H, N, D]
+    d_O, d_L,          // 输出和 logsumexp
     batch_size, num_heads, seq_len, head_dim,
-    scale,             // 通常为 1/sqrt(head_dim)
-    causal,            // 启用因果掩码
+    scale,             // 注意力缩放因子
+    true,              // 启用因果掩码
     stream             // CUDA 流（可选）
 );
 
-// 反向传播
-err = cuflash::flash_attention_backward(
-    Q, K, V, O, L, dO, // 输入和上游梯度
-    dQ, dK, dV,        // 输出梯度
-    batch_size, num_heads, seq_len, head_dim,
-    scale, causal, stream
-);
+if (err != cuflash::FlashAttentionError::SUCCESS) {
+    std::cerr << "错误: " << cuflash::get_error_string(err) << std::endl;
+}
 ```
 
-### 支持的配置
+完整示例请参见 [examples](examples/) 目录。
 
-| 参数 | 支持范围 |
-|------|---------|
-| `head_dim` | 32, 64, 128 |
-| 数据类型 | `float` (FP32)，`half` (FP16，前后向均支持) |
+---
+
+## 📖 文档
+
+| 文档 | 说明 |
+|------|------|
+| [API 参考 (英文)](docs/en/api-reference.md) | 完整的 C++ 和 C ABI API 文档 |
+| [算法详解](docs/zh/algorithm.md) | 深入了解 FlashAttention 实现 |
+| [构建指南](docs/zh/building.md) | 详细的构建说明 |
+| [故障排除](docs/zh/troubleshooting.md) | 常见问题与解决方案 |
+
+**完整文档站点：** [https://lessup.github.io/cuflash-attn/](https://lessup.github.io/cuflash-attn/)
+
+---
+
+## ⚙️ 支持的配置
+
+| 参数 | 支持的值 |
+|------|----------|
+| `head_dim` | 32、64、128 |
+| 数据类型 | `float` (FP32)、`half` (FP16) |
 | 因果掩码 | 可选 |
+| 批大小 | ≥ 1 |
+| 序列长度 | ≥ 1 |
+| 头数 | ≥ 1 |
 
-## 运行测试
+### GPU 架构支持
+
+| 架构 | 计算能力 | GPU |
+|------|----------|------|
+| Volta | sm_70 | V100 |
+| Turing | sm_75 | RTX 2080 Ti |
+| Ampere | sm_80、sm_86 | A100、RTX 3090 |
+| Ada Lovelace | sm_89 | RTX 4090 |
+| Hopper | sm_90 | H100 |
+
+---
+
+## 🧪 测试
 
 ```bash
-ctest --preset default --output-on-failure
-```
+# 运行所有测试
+ctest --preset release --output-on-failure
 
-GoogleTest 通过 CMake FetchContent 自动下载，无需手动安装。
+# 运行特定测试
+ctest --preset release -R ForwardTest
 
-### PyTorch 对比测试
-
-```bash
+# PyTorch 对比测试
 python tests/test_pytorch_comparison.py
 ```
 
-先构建共享库。Preset 构建产物位于 `build/<preset>/`，例如 `build/default/` 或 `build/release/`。也可通过环境变量 `CUFLASH_LIB=/absolute/path/to/libcuflash_attn.so` 指定库路径。
+---
 
-## 算法
-
-基于 FlashAttention 算法：
-
-1. **分块（Tiling）**: 将 Q, K, V 分成适合 SRAM 的块
-2. **Online Softmax**: 增量计算 softmax，不存储完整注意力矩阵
-3. **重计算（Recomputation）**: 反向传播中重新计算注意力权重而非存储
+## ⚡ 性能特征
 
 ### 内存复杂度
 
-| 方法 | 前向额外内存 | 反向额外内存 |
-|------|-------------|-------------|
+| 方法 | 前向内存 | 反向内存 |
+|------|----------|----------|
 | 标准 Attention | O(N²) | O(N²) |
-| FlashAttention | O(N) | O(N) |
+| **FlashAttention** | **O(N)** | **O(N)** |
 
-## 项目结构
+### 实际内存节省
+
+| 序列长度 | 标准 Attention | FlashAttention | 节省 |
+|-----------------|----------|----------------|---------|
+| 1,024 | 4 MB | 8 KB | 99.8% |
+| 4,096 | 64 MB | 32 KB | 99.95% |
+| 16,384 | 1 GB | 128 KB | 99.99% |
+
+---
+
+## 🏗️ 项目结构
 
 ```
 ├── include/
 │   └── flash_attention.h          # 公共 API 头文件
 ├── src/
 │   ├── flash_attention_api.cu     # API 实现
-│   ├── flash_attention_forward.cu # FP32 前向 kernel
-│   ├── flash_attention_backward.cu# FP32 反向 kernel
-│   ├── flash_attention_fp16.cu    # FP16 前向 kernel
-│   ├── flash_attention_backward_fp16.cu # FP16 反向 kernel
-│   ├── kernel_launch_utils.cuh    # Kernel 启动工具
-│   ├── online_softmax.cuh         # Online softmax 工具
-│   └── matmul.cuh                 # 矩阵乘法辅助
-├── tests/
-│   ├── test_forward.cu            # 前向传播测试
-│   ├── test_backward.cu           # 反向传播测试
-│   ├── test_causal_mask.cu        # 因果掩码测试
-│   ├── test_online_softmax.cu     # Online softmax 测试
-│   ├── test_error_handling.cu     # 错误处理测试
-│   ├── test_dtype.cu              # 数据类型测试
-│   ├── test_numerical_stability.cu# 数值稳定性测试
-│   └── test_pytorch_comparison.py # PyTorch 对比测试
-├── examples/
-│   └── basic_usage.cu             # 使用示例
-├── CMakeLists.txt
-└── CMakePresets.json              # 构建预设
+│   ├── flash_attention_forward.cu # FP32 前向内核
+│   ├── flash_attention_backward.cu# FP32 反向内核
+│   ├── flash_attention_fp16.cu    # FP16 前向内核
+│   └── flash_attention_backward_fp16.cu # FP16 反向
+├── docs/
+│   ├── en/                        # 英文文档
+│   └── zh/                        # 中文文档
+├── tests/                         # 测试套件
+├── examples/                      # 使用示例
+└── CMakePresets.json             # 构建预设
 ```
 
-## 错误处理
+---
 
-```cpp
-cuflash::FlashAttentionError err = cuflash::flash_attention_forward(...);
-if (err != cuflash::FlashAttentionError::SUCCESS) {
-    std::cerr << cuflash::get_error_string(err) << std::endl;
-}
-```
+## 🤝 贡献
 
-### 错误码
+欢迎贡献！请确保：
 
-| 错误码 | 说明 |
-|--------|------|
-| `SUCCESS` | 操作成功 |
-| `INVALID_DIMENSION` | 维度参数无效（≤ 0） |
-| `DIMENSION_MISMATCH` | 预留错误码，当前未返回 |
-| `NULL_POINTER` | 输入或输出指针为空 |
-| `CUDA_ERROR` | CUDA 运行时错误 |
-| `OUT_OF_MEMORY` | GPU 显存不足 |
-| `UNSUPPORTED_HEAD_DIM` | head_dim 必须为 32, 64 或 128 |
-| `UNSUPPORTED_DTYPE` | 该操作不支持的数据类型 |
+1. 代码遵循现有风格（运行 `clang-format`）
+2. 使用 `ctest` 通过测试
+3. API 变更时更新文档
 
-## GPU 架构支持
+---
 
-| 架构 | 计算能力 | 代表 GPU |
-|------|---------|---------|
-| Volta | sm_70 | V100 |
-| Turing | sm_75 | RTX 2080 Ti |
-| Ampere | sm_80, sm_86 | A100, RTX 3090 |
-| Ada Lovelace | sm_89 | RTX 4090 |
-| Hopper | sm_90 | H100 |
+## 📄 许可证
 
-## 许可证
+本项目采用 MIT 许可证 —— 详见 [LICENSE](LICENSE) 文件。
 
-MIT License
+---
 
-## 参考文献
+## 📚 参考文献
 
-- [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/abs/2205.14135)
-- [FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning](https://arxiv.org/abs/2307.08691)
+- [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/abs/2205.14135) (Dao 等，NeurIPS 2022)
+- [FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning](https://arxiv.org/abs/2307.08691) (Dao，ICLR 2024)
+
+---
+
+## 📝 更新日志
+
+版本历史和更新请参见 [CHANGELOG.md](CHANGELOG.md)。
+
+---
+
+<p align="center">
+  <sub>用 ❤️ 打造的高效注意力计算</sub>
+</p>
