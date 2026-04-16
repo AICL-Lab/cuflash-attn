@@ -7,9 +7,8 @@ int main() {
     float o = 0.0f;
     float l = 0.0f;
 
-    auto err = cuflash::flash_attention_forward(
-        nullptr, &q, &q, &o, &l,
-        1, 1, 1, 32, 1.0f, false, 0);
+    auto err =
+        cuflash::flash_attention_forward(nullptr, &q, &q, &o, &l, 1, 1, 1, 32, 1.0f, false, 0);
     if (err != cuflash::FlashAttentionError::NULL_POINTER) {
         std::cerr << "Installed package smoke check failed: expected NULL_POINTER, got "
                   << static_cast<int>(err) << std::endl;
