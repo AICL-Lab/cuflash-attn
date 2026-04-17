@@ -48,13 +48,13 @@ jobs:
           sub-packages: '["nvcc", "cudart", "cccl"]'
 
       - name: Configure CMake
-        run: cmake -B build --preset release -DCMAKE_CUDA_ARCHITECTURES="80"
+        run: cmake -B build/release --preset release -DCMAKE_CUDA_ARCHITECTURES="80"
 
       - name: Build library
-        run: cmake --build build --preset release -j$(nproc)
+        run: cmake --build build/release --preset release -j$(nproc)
 
       - name: Run tests
-        run: ctest --test-dir build --preset release --output-on-failure
+        run: ctest --test-dir build/release --preset release --output-on-failure
 
       - name: Build docs
         working-directory: docs
@@ -101,8 +101,8 @@ jobs:
             cmake --build --preset release
             ```
           files: |
-            build/libcuflash_attn.so
-            build/libcuflash_attn.a
+            build/release/libcuflash_attn.so
+            build/release/libcuflash_attn.a
           draft: false
           prerelease: false
           generate_release_notes: true
