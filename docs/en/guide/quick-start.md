@@ -86,6 +86,6 @@ int main() {
 
 ## Next Steps
 
-- Learn about [supported configurations](/en/api/)
+- Learn about [API Reference](/en/api-reference)
 - Read the [algorithm explanation](/en/algorithm)
-- Check [building options](/en/guide/building)
+- Check [building options](/en/building)

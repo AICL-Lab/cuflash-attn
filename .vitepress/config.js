@@ -33,14 +33,14 @@ const sharedHead = [
 // 英文导航
 const enNav = [
   { text: 'Guide', link: '/en/guide/quick-start', activeMatch: '/en/guide/' },
-  { text: 'API Reference', link: '/en/api-reference', activeMatch: '/en/api' },
+  { text: 'API', link: '/en/api-reference', activeMatch: '/en/api' },
   { text: 'Algorithm', link: '/en/algorithm', activeMatch: '/en/algorithm' },
-  { text: 'Specs', link: '/specs/', activeMatch: '/specs/' },
   {
-    text: 'v0.2.0',
+    text: 'v0.1.0',
     items: [
       { text: 'Changelog', link: 'https://github.com/LessUp/cuflash-attn/blob/master/CHANGELOG.md' },
-      { text: 'Releases', link: 'https://github.com/LessUp/cuflash-attn/releases' }
+      { text: 'Releases', link: 'https://github.com/LessUp/cuflash-attn/releases' },
+      { text: 'Specs', link: 'https://github.com/LessUp/cuflash-attn/tree/master/specs' }
     ]
   }
 ]
@@ -51,7 +51,7 @@ const zhNav = [
   { text: 'API 参考', link: '/zh/api-reference', activeMatch: '/zh/api' },
   { text: '算法详解', link: '/zh/algorithm', activeMatch: '/zh/algorithm' },
   {
-    text: 'v0.2.0',
+    text: 'v0.1.0',
     items: [
       { text: '更新日志', link: 'https://github.com/LessUp/cuflash-attn/blob/master/CHANGELOG.md' },
       { text: '发布版本', link: 'https://github.com/LessUp/cuflash-attn/releases' }
@@ -90,19 +90,6 @@ const enSidebar = {
       collapsed: false,
       items: [
         { text: 'Troubleshooting', link: '/en/troubleshooting' },
-      ]
-    }
-  ],
-  '/specs/': [
-    {
-      text: 'Specifications',
-      collapsed: false,
-      items: [
-        { text: 'Overview', link: '/specs/' },
-        { text: 'Product Requirements', link: '/specs/product/001-flash-attention-core' },
-        { text: 'Architecture RFC', link: '/specs/rfc/001-core-architecture' },
-        { text: 'API Specification', link: '/specs/api/001-public-api' },
-        { text: 'Testing Specification', link: '/specs/testing/001-test-specification' },
       ]
     }
   ]
@@ -278,13 +265,7 @@ export default withPwa(
 
       // 社交链接
       socialLinks: [
-        { icon: 'github', link: 'https://github.com/LessUp/cuflash-attn' },
-        {
-          icon: {
-            svg: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93c0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41c0 2.08-.8 3.97-2.1 5.39z"/></svg>'
-          },
-          link: 'https://lessup.github.io/cuflash-attn/'
-        }
+        { icon: 'github', link: 'https://github.com/LessUp/cuflash-attn' }
       ],
 
       // 页脚
@@ -331,27 +312,6 @@ export default withPwa(
         alias: {
           '@': '/.vitepress'
         }
-      },
-      // CSS
-      css: {
-        preprocessorOptions: {
-          scss: {
-            additionalData: `
-              @use "./.vitepress/theme/custom.scss" as *;
-            `
-          }
-        }
-      },
-      // 优化
-      build: {
-        chunkSizeWarningLimit: 1000,
-        rollupOptions: {
-          output: {
-            manualChunks: {
-              'vendor': ['vue'],
-            }
-          }
-        }
       }
     },
 
@@ -371,12 +331,6 @@ export default withPwa(
 
     // 清理 URL（去掉 .html）
     cleanUrls: true,
-
-    // 源目录
-    srcDir: '.',
-
-    // 源文件排除
-    srcExclude: ['**/(README|CHANGELOG|LICENSE|package)*'],
   }),
 
   // PWA 配置

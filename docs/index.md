@@ -116,7 +116,7 @@ This project follows **Spec-Driven Development (SDD)**. All implementation detai
 
 | Document | Description |
 |----------|-------------|
-| [Product Requirements](/specs/product/001-flash-attention-core) | Feature definitions and acceptance criteria |
-| [Architecture RFC](/specs/rfc/001-core-architecture) | Technical design and architecture |
-| [API Specification](/specs/api/001-public-api) | Public API definitions |
-| [Testing Specification](/specs/testing/001-test-specification) | Testing strategy and requirements |
+| [Product Requirements](https://github.com/LessUp/cuflash-attn/blob/master/specs/product/001-flash-attention-core.md) | Feature definitions and acceptance criteria |
+| [Architecture RFC](https://github.com/LessUp/cuflash-attn/blob/master/specs/rfc/001-core-architecture.md) | Technical design and architecture |
+| [API Specification](https://github.com/LessUp/cuflash-attn/blob/master/specs/api/001-public-api.md) | Public API definitions |
+| [Testing Specification](https://github.com/LessUp/cuflash-attn/blob/master/specs/testing/001-test-specification.md) | Testing strategy and requirements |

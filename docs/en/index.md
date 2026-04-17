@@ -27,8 +27,8 @@ A CUDA-capable GPU with Compute Capability 7.0+ is required (V100 or newer recom
 ## Navigation
 
 - [Quick Start Guide](/en/guide/quick-start) - Get up and running in 5 minutes
-- [Building from Source](/en/guide/building) - Detailed build instructions
-- [API Reference](/en/api/) - Complete API documentation
+- [Building from Source](/en/building) - Detailed build instructions
+- [API Reference](/en/api-reference) - Complete API documentation
 - [Algorithm Deep Dive](/en/algorithm) - Understanding FlashAttention
 - [Troubleshooting](/en/troubleshooting) - Common issues and solutions
 
