@@ -30,6 +30,72 @@ jobs:
           exclude-regex: '(^|/)(build|third_party|external|vendor|\.git)(/|$)'
           fallback-style: 'LLVM'
 
+  docs-build:
+    name: Docs Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Build docs
+        working-directory: docs
+        run: npm run docs:build
+
+  build-test:
+    name: Build & Test (${{ matrix.build-type }} - CUDA ${{ matrix.cuda }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cuda: ['12.2', '12.4']
+        build-type: [Release]
+        include:
+          - cuda: '12.4'
+            build-type: Debug
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@v0.2.23
+        with:
+          cuda: '${{ matrix.cuda }}'
+          method: 'network'
+          sub-packages: '["nvcc", "cudart", "cccl"]'
+
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            _deps
+            ~/.cache/pip
+          key: ${{ runner.os }}-cmake-${{ matrix.cuda }}-${{ matrix.build-type }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-${{ matrix.cuda }}-${{ matrix.build-type }}-
+            ${{ runner.os }}-cmake-${{ matrix.cuda }}-
+            ${{ runner.os }}-cmake-
+
+      - name: Configure CMake
+        run: cmake -B build-${{ matrix.build-type }} --preset ${{ matrix.build-type }} -DCMAKE_CUDA_ARCHITECTURES="80"
+
+      - name: Build
+        run: cmake --build build-${{ matrix.build-type }} --preset ${{ matrix.build-type }} -j2
+
+      - name: Run tests
+        run: ctest --test-dir build-${{ matrix.build-type }} --preset ${{ matrix.build-type }} --output-on-failure -j2
+
   configure-minimal:
     name: Configure Minimal Build
     runs-on: ubuntu-22.04
@@ -43,6 +109,15 @@ jobs:
           cuda: '12.4.1'
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cccl"]'
+
+      - name: Cache CMake dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            _deps
+            ~/.cache/pip
+          key: ${{ runner.os }}-cmake-minimal-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: ${{ runner.os }}-cmake-minimal-
 
       - name: Configure CMake minimal preset
         run: cmake --preset minimal

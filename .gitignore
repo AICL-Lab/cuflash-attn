@@ -7,7 +7,22 @@ node_modules
 .vitepress/cache
 _site
 build
+build-*
 dist
+_deps
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# CUDA build artifacts
+*.ptx
+*.fatbin
+*.cu.o
+*.cuh.o
 
 # IDE
 .vscode/*
@@ -40,3 +55,11 @@ coverage
 .cache
 .temp
 *.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Benchmark outputs
+benchmark_results/

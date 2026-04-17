@@ -17,7 +17,7 @@ hero:
       link: https://github.com/LessUp/cuflash-attn
     - theme: alt
       text: 中文文档
-      link: /zh/
+      link: https://lessup.github.io/cuflash-attn/zh/
 
 features:
   - icon: ⚡
@@ -79,7 +79,7 @@ ctest --preset release --output-on-failure
 ## Usage Example
 
 ```cpp
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 
 // Forward pass with causal masking
 auto err = cuflash::flash_attention_forward(
@@ -101,7 +101,22 @@ auto err = cuflash::flash_attention_forward(
 
 ## Documentation
 
-- [English Guide](/en/) - Complete documentation in English
-- [中文文档](/zh/) - 简体中文文档
-- [API Reference](/en/api/) - Detailed API documentation
-- [Algorithm](/en/algorithm) - FlashAttention deep dive
+| Resource | Description |
+|----------|-------------|
+| [Quick Start](/en/guide/quick-start) | Get up and running in 5 minutes |
+| [API Reference](/en/api-reference) | Complete C++ and C ABI API documentation |
+| [Algorithm Deep Dive](/en/algorithm) | Understanding FlashAttention |
+| [Building from Source](/en/building) | Detailed build instructions |
+| [Troubleshooting](/en/troubleshooting) | Common issues and solutions |
+| [中文文档](/zh/) | Chinese documentation |
+
+## Specifications
+
+This project follows **Spec-Driven Development (SDD)**. All implementation details are documented in `/specs/`:
+
+| Document | Description |
+|----------|-------------|
+| [Product Requirements](/specs/product/001-flash-attention-core) | Feature definitions and acceptance criteria |
+| [Architecture RFC](/specs/rfc/001-core-architecture) | Technical design and architecture |
+| [API Specification](/specs/api/001-public-api) | Public API definitions |
+| [Testing Specification](/specs/testing/001-test-specification) | Testing strategy and requirements |

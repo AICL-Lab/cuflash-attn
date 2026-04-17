@@ -25,7 +25,7 @@ CuFlash-Attn 提供简洁的 C++ API，所有函数和类型定义在 `cuflash` 
 ## 头文件
 
 ```cpp
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 ```
 
 所有公共 API 均通过此单一头文件暴露。
@@ -284,7 +284,7 @@ const char* get_error_string(FlashAttentionError error);
 ### 错误处理示例
 
 ```cpp
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 #include <iostream>
 
 int main() {
