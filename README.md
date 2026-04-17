@@ -1,14 +1,29 @@
 # CuFlash-Attn
 
+> **High-performance CUDA C++ FlashAttention implementation from scratch**
+
 [![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/codeql.yml?branch=master&style=flat-square&logo=github&label=CodeQL)](https://github.com/LessUp/cuflash-attn/actions/workflows/codeql.yml)
 [![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Version](https://img.shields.io/github/v/release/LessUp/cuflash-attn?style=flat-square&label=version)](https://github.com/LessUp/cuflash-attn/releases)
 
-English | [简体中文](README.zh-CN.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Documentation](https://lessup.github.io/cuflash-attn/) · [API Reference](https://lessup.github.io/cuflash-attn/en/api-reference)
 
-> A FlashAttention implementation in CUDA C++ from scratch — primarily for educational purposes and as a reference implementation.
+---
 
-CuFlash-Attn provides an efficient, IO-aware implementation of the FlashAttention algorithm with O(N) memory complexity and support for both FP32 and FP16 precision.
+## 🎯 Overview
+
+CuFlash-Attn is a **from-scratch implementation** of the FlashAttention algorithm, optimized for **educational purposes**, **research experimentation**, and **production integration**.
+
+### Why CuFlash-Attn?
+
+| Challenge | Solution |
+|-----------|----------|
+| 📚 **Learn FlashAttention** | Clean, well-documented CUDA kernels with step-by-step algorithm implementation |
+| 🔬 **Research & Experiment** | Modify attention mechanisms without complex framework dependencies |
+| 🚀 **Production Ready** | C++ API with C ABI bindings for seamless Python integration via ctypes |
+| ⚡ **GPU Optimized** | Multi-architecture support from V100 (sm_70) to H100 (sm_90) |
 
 ---
 
@@ -16,36 +31,35 @@ CuFlash-Attn provides an efficient, IO-aware implementation of the FlashAttentio
 
 | Feature | Description |
 |---------|-------------|
-| ⚡ **O(N) Memory** | Linear memory complexity versus O(N²) in standard attention |
-| 🔢 **Dual Precision** | Full FP32 and FP16 support for forward and backward passes |
-| 🔁 **Complete Training** | Both forward and backward passes with gradient computation |
-| 🎭 **Causal Masking** | Built-in support for autoregressive models |
-| 🔧 **Easy Integration** | C++ and C ABI interfaces for Python via ctypes |
-| 🏎️ **Multi-Arch CUDA** | Optimized for sm_70 through sm_90 (V100 to H100) |
-| 📚 **Bilingual Docs** | Complete documentation in English and Chinese |
-
----
-
-## 📋 Requirements
-
-| Requirement | Minimum Version | Notes |
-|-------------|-----------------|-------|
-| CUDA Toolkit | 11.0 | Includes nvcc compiler |
-| CMake | 3.18 | Build system |
-| C++ Compiler | C++17 | GCC 7+, Clang 5+, or MSVC 2017+ |
-| GPU | Compute Capability 7.0+ | V100 or newer recommended |
+| ⚡ **O(N) Memory** | Linear memory complexity vs O(N²) in standard attention — handle 16K+ sequences |
+| 🔢 **Dual Precision** | FP32 & FP16 support for both forward and backward passes |
+| 🔁 **Full Training** | Complete forward/backward with gradient computation |
+| 🎭 **Causal Masking** | Built-in support for autoregressive models (GPT-style) |
+| 🔧 **Easy Integration** | Clean C++ API + C ABI for Python ctypes integration |
+| 🏎️ **Multi-Arch** | Optimized CUDA kernels for sm_70 → sm_90 (V100 → H100) |
+| 🧪 **Comprehensive Tests** | Unit tests, integration tests, stress tests, PyTorch comparison |
+| 📊 **Benchmarks** | Google Benchmark integration for performance tracking |
+| 📚 **Bilingual Docs** | Complete English & Chinese documentation |
 
 ---
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- **GPU**: NVIDIA GPU with Compute Capability 7.0+ (V100, RTX 20/30/40, A100, H100)
+- **CUDA Toolkit**: 11.0 or later
+- **CMake**: 3.18 or later
+- **Compiler**: GCC 7+, Clang 5+, or MSVC 2017+ (C++17 support required)
+
 ### Installation
 
 ```bash
+# Clone repository
 git clone https://github.com/LessUp/cuflash-attn.git
 cd cuflash-attn
 
-# Build with CMake preset (recommended)
+# Build with preset (Release mode)
 cmake --preset release
 cmake --build --preset release
 
@@ -53,170 +67,247 @@ cmake --build --preset release
 ctest --preset release --output-on-failure
 ```
 
-### Basic Usage
+### Your First Program
 
 ```cpp
+#include <cuda_runtime.h>
 #include "cuflash/flash_attention.h"
+#include <iostream>
 
-// Compute attention with causal masking
-float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
-
-auto err = cuflash::flash_attention_forward(
-    d_Q, d_K, d_V,     // Input tensors [B, H, N, D]
-    d_O, d_L,          // Output and logsumexp
-    batch_size, num_heads, seq_len, head_dim,
-    scale,             // Attention scale factor
-    true,              // Enable causal masking
-    stream             // CUDA stream (optional)
-);
-
-if (err != cuflash::FlashAttentionError::SUCCESS) {
-    std::cerr << "Error: " << cuflash::get_error_string(err) << std::endl;
+int main() {
+    const int B = 2, H = 8, N = 1024, D = 64;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(D));
+    
+    // Allocate device memory
+    float *d_Q, *d_K, *d_V, *d_O, *d_L;
+    cudaMalloc(&d_Q, B * H * N * D * sizeof(float));
+    cudaMalloc(&d_K, B * H * N * D * sizeof(float));
+    cudaMalloc(&d_V, B * H * N * D * sizeof(float));
+    cudaMalloc(&d_O, B * H * N * D * sizeof(float));
+    cudaMalloc(&d_L, B * H * N * sizeof(float));
+    
+    // Initialize Q, K, V with your data...
+    
+    // Compute FlashAttention with causal masking
+    auto err = cuflash::flash_attention_forward(
+        d_Q, d_K, d_V, d_O, d_L,
+        B, H, N, D, scale,
+        true  // causal masking
+    );
+    
+    if (err != cuflash::FlashAttentionError::SUCCESS) {
+        std::cerr << "Error: " << cuflash::get_error_string(err) << std::endl;
+        return 1;
+    }
+    
+    // d_O now contains the attention output
+    
+    cudaFree(d_Q); cudaFree(d_K); cudaFree(d_V);
+    cudaFree(d_O); cudaFree(d_L);
+    return 0;
 }
 ```
 
-See the [examples](examples/) directory for complete examples.
+📖 **More examples**: See [examples/](examples/) directory for complete programs.
+
+---
+
+## 📊 Performance
+
+### Memory Efficiency
+
+| Sequence Length | Standard Attention | FlashAttention | **Savings** |
+|----------------|-------------------|----------------|-------------|
+| 1,024 | 4 MB | 8 KB | **99.8%** |
+| 4,096 | 64 MB | 32 KB | **99.95%** |
+| 16,384 | 1 GB | 128 KB | **99.99%** |
+
+### Benchmark Results
+
+Run performance benchmarks on your hardware:
+
+```bash
+cmake --preset release
+cmake --build --preset release
+./build/release/benchmarks/cuflash_attn_bench
+```
+
+See [benchmarks/](benchmarks/) for benchmark source code.
 
 ---
 
 ## 📖 Documentation
 
-| Document | Description |
-|----------|-------------|
-| [English API Reference](docs/en/api-reference.md) | Complete C++ and C ABI API documentation |
-| [算法详解 (Algorithm)](docs/zh/algorithm.md) | Deep dive into FlashAttention implementation |
-| [构建指南 (Build Guide)](docs/zh/building.md) | Detailed build instructions |
-| [故障排除 (Troubleshooting)](docs/zh/troubleshooting.md) | Common issues and solutions |
+### Quick Links
 
-**Full documentation site:** [https://lessup.github.io/cuflash-attn/](https://lessup.github.io/cuflash-attn/)
+| Resource | Link |
+|----------|------|
+| 📘 **Full Documentation** | [https://lessup.github.io/cuflash-attn/](https://lessup.github.io/cuflash-attn/) |
+| 🔌 **API Reference** | [English API Docs](https://lessup.github.io/cuflash-attn/en/api-reference) |
+| 🧠 **Algorithm Deep Dive** | [FlashAttention Explained](https://lessup.github.io/cuflash-attn/en/algorithm) |
+| 🔧 **Build Guide** | [Building from Source](https://lessup.github.io/cuflash-attn/en/building) |
+| ❓ **Troubleshooting** | [Common Issues & Solutions](https://lessup.github.io/cuflash-attn/en/troubleshooting) |
+
+### Documentation Languages
+
+- 🇬🇧 [English Documentation](https://lessup.github.io/cuflash-attn/)
+- 🇨🇳 [中文文档](https://lessup.github.io/cuflash-attn/zh/)
 
 ---
 
-## ⚙️ Supported Configurations
+## ⚙️ Configuration
 
-| Parameter | Supported Values |
-|-----------|------------------|
-| `head_dim` | 32, 64, 128 |
-| Data Types | `float` (FP32), `half` (FP16) |
-| Causal Masking | Optional |
-| Batch Size | ≥ 1 |
-| Sequence Length | ≥ 1 |
-| Number of Heads | ≥ 1 |
+### Supported Parameters
+
+| Parameter | Values | Notes |
+|-----------|--------|-------|
+| `head_dim` | 32, 64, 128 | Required for kernel optimization |
+| **Data Types** | FP32 (`float`), FP16 (`half`) | Both forward & backward |
+| **Causal Mask** | Optional | Enabled/disabled at runtime |
+| **Batch Size** | ≥ 1 | Any positive integer |
+| **Sequence Length** | ≥ 1 | Optimized for 1K-16K+ |
+| **Number of Heads** | ≥ 1 | Any positive integer |
 
 ### GPU Architecture Support
 
-| Architecture | Compute | GPUs |
-|--------------|---------|------|
+| Architecture | Compute | Example GPUs |
+|--------------|---------|--------------|
 | Volta | sm_70 | V100 |
 | Turing | sm_75 | RTX 2080 Ti |
 | Ampere | sm_80, sm_86 | A100, RTX 3090 |
 | Ada Lovelace | sm_89 | RTX 4090 |
 | Hopper | sm_90 | H100 |
 
----
+**Default build targets**: sm_80, sm_86 (A100 + RTX 30xx/40xx)
 
-## 🧪 Testing
-
-```bash
-# Run all tests
-ctest --preset release --output-on-failure
-
-# Run specific test
-ctest --preset release -R ForwardTest
-
-# PyTorch comparison
-python tests/test_pytorch_comparison.py
-```
-
----
-
-## ⚡ Performance Characteristics
-
-### Memory Complexity
-
-| Method | Forward Memory | Backward Memory |
-|--------|----------------|-----------------|
-| Standard Attention | O(N²) | O(N²) |
-| **FlashAttention** | **O(N)** | **O(N)** |
-
-### Real-World Savings
-
-| Sequence Length | Standard | FlashAttention | Savings |
-|-----------------|----------|----------------|---------|
-| 1,024 | 4 MB | 8 KB | 99.8% |
-| 4,096 | 64 MB | 32 KB | 99.95% |
-| 16,384 | 1 GB | 128 KB | 99.99% |
+Customize with: `cmake -B build -DCMAKE_CUDA_ARCHITECTURES="90"`
 
 ---
 
 ## 🏗️ Project Structure
 
 ```
-├── specs/                        # Specification documents (Single Source of Truth)
-│   ├── product/                  # Product requirements & acceptance criteria
-│   ├── rfc/                      # Technical design documents (RFCs)
-│   ├── api/                      # API specifications
-│   └── testing/                  # Testing specifications
-├── include/
-│   └── flash_attention.h         # Public API header
-├── src/
-│   ├── flash_attention_api.cu    # API implementation
-│   ├── flash_attention_forward.cu # FP32 forward kernel
-│   ├── flash_attention_backward.cu # FP32 backward kernel
-│   ├── flash_attention_fp16.cu   # FP16 forward kernel
-│   └── flash_attention_backward_fp16.cu # FP16 backward
-├── docs/                         # User-facing documentation
-│   ├── setup/                    # Environment setup guides
-│   ├── tutorials/                # Usage tutorials
-│   ├── architecture/             # Architecture documentation
-│   └── assets/                   # Static assets
-├── tests/                        # Test suite
-├── examples/                     # Usage examples
-└── CMakePresets.json            # Build presets
+cuflash-attn/
+├── benchmarks/                 # Performance benchmarks (Google Benchmark)
+├── cmake/                      # CMake modules & packaging
+├── docs/                       # VitePress documentation site
+│   ├── en/                     # English documentation
+│   ├── zh/                     # Chinese documentation
+│   └── public/                 # Static assets (logos, favicons)
+├── examples/                   # Complete usage examples
+├── include/cuflash/            # Public API headers
+│   ├── flash_attention.h       # Main API with C++ and C ABI
+│   ├── export.h                # Visibility macros
+│   └── version.h.in            # Version header template
+├── specs/                      # Spec-Driven Development documents
+│   ├── product/                # Product requirements
+│   ├── rfc/                    # Technical design (RFCs)
+│   ├── api/                    # API specifications
+│   └── testing/                # Testing specifications
+├── src/                        # Implementation
+│   ├── api/                    # API dispatch layer
+│   ├── forward/                # Forward kernel implementations
+│   ├── backward/               # Backward kernel implementations
+│   └── kernels/                # Internal kernel utilities (.cuh)
+├── tests/                      # Test suite
+│   ├── unit/                   # Unit tests (8 files)
+│   ├── integration/            # Integration tests + PyTorch comparison
+│   └── package_smoke/          # Package smoke tests
+├── CMakeLists.txt              # Main build configuration
+├── CMakePresets.json           # Build presets (release, debug, asan)
+└── .github/workflows/          # CI/CD workflows
+    ├── ci.yml                  # Matrix builds, tests, benchmarks
+    ├── codeql.yml              # Security scanning
+    ├── pages.yml               # Docs deployment
+    └── release.yml             # Release automation
 ```
 
-**Specification Documents:**
-- [Product Requirements](specs/product/001-flash-attention-core.md) - Feature definitions and acceptance criteria
-- [Core Architecture RFC](specs/rfc/001-core-architecture.md) - Technical design and architecture
-- [API Specification](specs/api/001-public-api.md) - Public API definitions
-- [Testing Specification](specs/testing/001-test-specification.md) - Testing strategy and requirements
+---
+
+## 🧪 Testing & Quality
+
+### Test Categories
+
+```bash
+# Run all tests
+ctest --preset release --output-on-failure
+
+# Run specific test categories
+ctest --preset release -R ForwardTest    # Forward pass tests
+ctest --preset release -R BackwardTest   # Backward pass tests
+ctest --preset release -R StressTest     # Stress & edge cases
+ctest --preset release -R PyTorch        # PyTorch comparison (requires GPU + PyTorch)
+```
+
+### Code Quality Tools
+
+- ✅ **clang-format**: Automated code formatting (enforced in CI)
+- ✅ **clang-tidy**: Static analysis with 50+ checks
+- ✅ **CodeQL**: Weekly security scanning
+- ✅ **Sanitizers**: AddressSanitizer & UBSan support (debug builds)
+
+```bash
+# Build with AddressSanitizer
+cmake --preset debug-asan
+cmake --build --preset debug-asan
+ctest --preset debug-asan
+```
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! This project follows **Spec-Driven Development (SDD)** methodology. Please ensure:
+Contributions are welcome! This project follows **Spec-Driven Development (SDD)** methodology.
 
-1. **Read the specs first** - All implementation details are defined in `/specs/` directory
-2. Code follows the existing style (run `clang-format`)
-3. Tests pass with `ctest`
-4. Documentation is updated for API changes
+### Getting Started
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute, including how to work with specs.
+1. **Read the specs first** 📖 — All requirements are in [/specs/](specs/)
+2. **Fork & clone** the repository
+3. **Create a branch** for your feature or fix
+4. **Write tests** that validate your changes
+5. **Update documentation** if API changes
+6. **Submit a pull request**
 
-**For AI Contributors:** Read [AGENTS.md](AGENTS.md) for the SDD workflow instructions.
+### Development Workflow
+
+```bash
+# Format code before committing
+find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs clang-format -i
+
+# Run tests locally
+cmake --preset release && cmake --build --preset release
+ctest --preset release --output-on-failure
+
+# Optional: Run clang-tidy
+clang-tidy src/api/flash_attention_api.cu -- -Iinclude
+```
+
+📋 **Detailed guidelines**: See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+🤖 **For AI Contributors**: Read [AGENTS.md](AGENTS.md) for SDD workflow instructions.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
 ## 📚 References
 
-- [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/abs/2205.14135) (Dao et al., NeurIPS 2022)
-- [FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning](https://arxiv.org/abs/2307.08691) (Dao, ICLR 2024)
+- [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/abs/2205.14135) — Dao et al., NeurIPS 2022
+- [FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning](https://arxiv.org/abs/2307.08691) — Dao, ICLR 2024
 
 ---
 
-## 📝 Changelog
+## 📈 Version History
 
-See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history and updates.
 
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for efficient attention computation</sub>
+  <sub>Built with ❤️ for efficient attention computation</sub><br>
+  <sub>Spec-Driven Development · CUDA C++ · Open Source</sub>
 </p>
