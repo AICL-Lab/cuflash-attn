@@ -56,7 +56,7 @@ ctest --preset release --output-on-failure
 ### 基本用法
 
 ```cpp
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 
 // 使用因果掩码计算注意力
 float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
@@ -152,21 +152,32 @@ python tests/test_pytorch_comparison.py
 ## 🏗️ 项目结构
 
 ```
+├── specs/                        # 规范文档 (Single Source of Truth)
+│   ├── product/                  # 产品需求与验收标准
+│   ├── rfc/                      # 技术设计文档 (RFCs)
+│   ├── api/                      # API 规范
+│   └── testing/                  # 测试规范
 ├── include/
-│   └── flash_attention.h          # 公共 API 头文件
+│   └── flash_attention.h         # 公共 API 头文件
 ├── src/
-│   ├── flash_attention_api.cu     # API 实现
+│   ├── flash_attention_api.cu    # API 实现
 │   ├── flash_attention_forward.cu # FP32 前向内核
-│   ├── flash_attention_backward.cu# FP32 反向内核
-│   ├── flash_attention_fp16.cu    # FP16 前向内核
+│   ├── flash_attention_backward.cu # FP32 反向内核
+│   ├── flash_attention_fp16.cu   # FP16 前向内核
 │   └── flash_attention_backward_fp16.cu # FP16 反向
 ├── docs/
-│   ├── en/                        # 英文文档
-│   └── zh/                        # 中文文档
-├── tests/                         # 测试套件
-├── examples/                      # 使用示例
-└── CMakePresets.json             # 构建预设
+│   ├── en/                       # 英文文档
+│   └── zh/                       # 中文文档
+├── tests/                        # 测试套件
+├── examples/                     # 使用示例
+└── CMakePresets.json            # 构建预设
 ```
+
+**规范文档：**
+- [产品需求](specs/product/001-flash-attention-core.md) - 功能定义与验收标准
+- [架构 RFC](specs/rfc/001-core-architecture.md) - 技术设计与架构
+- [API 规范](specs/api/001-public-api.md) - 公共 API 定义
+- [测试规范](specs/testing/001-test-specification.md) - 测试策略与要求
 
 ---
 

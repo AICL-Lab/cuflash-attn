@@ -10,8 +10,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
-# CUDA architecture (adjust based on your GPU)
-set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86 89 90)
+# CUDA architecture (configurable, default to common architectures)
+if(NOT CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 80 86)  # A100 + RTX 30xx/40xx as default
+endif()
 
 # Find CUDA
 find_package(CUDAToolkit REQUIRED)
@@ -21,15 +23,18 @@ option(BUILD_TESTS "Build tests" ON)
 option(ENABLE_RAPIDCHECK "Enable RapidCheck property tests" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 option(BUILD_EXAMPLES "Build examples" ON)
+option(BUILD_BENCHMARKS "Build benchmarks" ON)
 option(ENABLE_FAST_MATH "Enable --use_fast_math (faster but less precise)" OFF)
+option(ENABLE_ASAN "Enable AddressSanitizer (debug builds only)" OFF)
+option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (debug builds only)" OFF)
 
 # Source files
 set(SOURCES
-    src/flash_attention_api.cu
-    src/flash_attention_forward.cu
-    src/flash_attention_backward.cu
-    src/flash_attention_fp16.cu
-    src/flash_attention_backward_fp16.cu
+    src/api/flash_attention_api.cu
+    src/forward/flash_attention_forward.cu
+    src/forward/flash_attention_fp16.cu
+    src/backward/flash_attention_backward.cu
+    src/backward/flash_attention_backward_fp16.cu
 )
 
 # Library
@@ -39,20 +44,64 @@ target_include_directories(cuflash_attn PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+# Private include directories for internal kernels
+target_include_directories(cuflash_attn PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/kernels
+)
 set_target_properties(cuflash_attn PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     EXPORT_NAME cuflash_attn
     CUDA_SEPARABLE_COMPILATION ON
+    CXX_VISIBILITY_PRESET hidden
+    CUDA_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)
+
+# Define CUFLASH_BUILDING_SHARED when building as shared library
+if(BUILD_SHARED_LIBS)
+    target_compile_definitions(cuflash_attn PRIVATE CUFLASH_BUILDING_SHARED=1)
+endif()
+
+# Generate version header
+configure_file(
+    ${CMAKE_SOURCE_DIR}/include/cuflash/version.h.in
+    ${CMAKE_BINARY_DIR}/include/cuflash/version.h
+    @ONLY
+)
+
+# Add generated include directory
+target_include_directories(cuflash_attn PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>
 )
 
 # Set CUDA flags
 # Note: Optimization level (-O2/-O3) is controlled by CMAKE_BUILD_TYPE.
 target_compile_options(cuflash_attn PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:
+        -Wall -Wextra -Wpedantic -Wshadow -Wconversion
+    >
     $<$<COMPILE_LANGUAGE:CUDA>:
         --expt-relaxed-constexpr
+        -Xcompiler=-Wall,-Wextra,-Wpedantic
         $<$<BOOL:${ENABLE_FAST_MATH}>:--use_fast_math>
     >
 )
+
+# Sanitizer support (optional, for debugging)
+if(ENABLE_ASAN OR ENABLE_UBSAN)
+    set(SANITIZER_FLAGS "")
+    if(ENABLE_ASAN)
+        list(APPEND SANITIZER_FLAGS "-fsanitize=address")
+    endif()
+    if(ENABLE_UBSAN)
+        list(APPEND SANITIZER_FLAGS "-fsanitize=undefined")
+    endif()
+    
+    target_compile_options(cuflash_attn PRIVATE ${SANITIZER_FLAGS} -fno-omit-frame-pointer)
+    target_link_options(cuflash_attn PRIVATE ${SANITIZER_FLAGS})
+    
+    message(STATUS "Sanitizers enabled: ${SANITIZER_FLAGS}")
+endif()
 
 # Tests
 if(BUILD_TESTS)
@@ -81,13 +130,14 @@ if(BUILD_TESTS)
 
     add_executable(cuflash_attn_tests
         tests/test_main.cpp
-        tests/test_online_softmax.cu
-        tests/test_forward.cu
-        tests/test_backward.cu
-        tests/test_causal_mask.cu
-        tests/test_error_handling.cu
-        tests/test_dtype.cu
-        tests/test_numerical_stability.cu
+        tests/unit/test_online_softmax.cu
+        tests/unit/test_forward.cu
+        tests/unit/test_backward.cu
+        tests/unit/test_causal_mask.cu
+        tests/unit/test_error_handling.cu
+        tests/unit/test_dtype.cu
+        tests/unit/test_numerical_stability.cu
+        tests/unit/test_stress_edge_cases.cu
     )
     target_link_libraries(cuflash_attn_tests PRIVATE cuflash_attn gtest)
     target_compile_options(cuflash_attn_tests PRIVATE
@@ -104,7 +154,7 @@ if(BUILD_TESTS)
         target_compile_definitions(cuflash_attn_tests PRIVATE CUFLASH_ENABLE_RAPIDCHECK=0)
     endif()
 
-    add_executable(cuflash_attn_api_smoke tests/test_api_smoke.cpp)
+    add_executable(cuflash_attn_api_smoke tests/integration/test_api_smoke.cpp)
     target_link_libraries(cuflash_attn_api_smoke PRIVATE cuflash_attn)
     set_target_properties(cuflash_attn_api_smoke PROPERTIES
         CXX_STANDARD 17
@@ -136,6 +186,28 @@ if(BUILD_TESTING AND BUILD_EXAMPLES)
     set_tests_properties(cuflash_attn_example_build PROPERTIES LABELS "smoke")
 endif()
 
+# Benchmarks
+if(BUILD_BENCHMARKS)
+    FetchContent_Declare(
+        benchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG v1.8.3
+        GIT_SHALLOW TRUE
+    )
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(benchmark)
+
+    add_executable(cuflash_attn_bench benchmarks/bench_flash_attention.cu)
+    target_link_libraries(cuflash_attn_bench PRIVATE cuflash_attn benchmark::benchmark)
+    set_target_properties(cuflash_attn_bench PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    target_compile_options(cuflash_attn_bench PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:
+            --expt-relaxed-constexpr
+        >
+    )
+endif()
+
 if(BUILD_TESTING AND BUILD_SHARED_LIBS)
     set(CUFLASH_PACKAGE_SMOKE_BUILD_DIR ${CMAKE_BINARY_DIR}/package-smoke)
     set(CUFLASH_PACKAGE_SMOKE_INSTALL_DIR ${CMAKE_BINARY_DIR}/package-install)
@@ -154,6 +226,19 @@ if(BUILD_TESTING AND BUILD_SHARED_LIBS)
             -P ${CMAKE_SOURCE_DIR}/cmake/run_package_smoke.cmake
     )
     set_tests_properties(cuflash_attn_package_smoke PROPERTIES LABELS "smoke;package")
+
+    # PyTorch comparison test (optional, requires Python and PyTorch)
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_Interpreter_FOUND)
+        add_test(
+            NAME cuflash_attn_pytorch_comparison
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/integration/test_pytorch_comparison.py
+        )
+        set_tests_properties(cuflash_attn_pytorch_comparison PROPERTIES
+            LABELS "integration;pytorch"
+            SKIP_RETURN_CODE 0
+        )
+    endif()
 endif()
 
 # Installation
@@ -167,6 +252,12 @@ install(TARGETS cuflash_attn
 
 install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.h"
+)
+
+# Install generated version header
+install(FILES ${CMAKE_BINARY_DIR}/include/cuflash/version.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cuflash
 )
 
 install(EXPORT cuflash_attnTargets

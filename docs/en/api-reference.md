@@ -25,7 +25,7 @@ Complete C++ API reference for CuFlash-Attn. All functions and types are defined
 ## Header File
 
 ```cpp
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 ```
 
 All public APIs are exposed through this single header file.
@@ -284,7 +284,7 @@ Returns a human-readable string for the error code.
 ### Error Handling Example
 
 ```cpp
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 #include <iostream>
 
 int main() {

@@ -7,7 +7,7 @@
 #include <random>
 #include <vector>
 
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 
 int main() {
     // Example dimensions

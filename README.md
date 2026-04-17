@@ -56,7 +56,7 @@ ctest --preset release --output-on-failure
 ### Basic Usage
 
 ```cpp
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 
 // Compute attention with causal masking
 float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
@@ -152,31 +152,49 @@ python tests/test_pytorch_comparison.py
 ## 🏗️ Project Structure
 
 ```
+├── specs/                        # Specification documents (Single Source of Truth)
+│   ├── product/                  # Product requirements & acceptance criteria
+│   ├── rfc/                      # Technical design documents (RFCs)
+│   ├── api/                      # API specifications
+│   └── testing/                  # Testing specifications
 ├── include/
-│   └── flash_attention.h          # Public API header
+│   └── flash_attention.h         # Public API header
 ├── src/
-│   ├── flash_attention_api.cu     # API implementation
+│   ├── flash_attention_api.cu    # API implementation
 │   ├── flash_attention_forward.cu # FP32 forward kernel
-│   ├── flash_attention_backward.cu# FP32 backward kernel
-│   ├── flash_attention_fp16.cu    # FP16 forward kernel
+│   ├── flash_attention_backward.cu # FP32 backward kernel
+│   ├── flash_attention_fp16.cu   # FP16 forward kernel
 │   └── flash_attention_backward_fp16.cu # FP16 backward
-├── docs/
-│   ├── en/                        # English documentation
-│   └── zh/                        # 中文文档
-├── tests/                         # Test suite
-├── examples/                      # Usage examples
-└── CMakePresets.json             # Build presets
+├── docs/                         # User-facing documentation
+│   ├── setup/                    # Environment setup guides
+│   ├── tutorials/                # Usage tutorials
+│   ├── architecture/             # Architecture documentation
+│   └── assets/                   # Static assets
+├── tests/                        # Test suite
+├── examples/                     # Usage examples
+└── CMakePresets.json            # Build presets
 ```
+
+**Specification Documents:**
+- [Product Requirements](specs/product/001-flash-attention-core.md) - Feature definitions and acceptance criteria
+- [Core Architecture RFC](specs/rfc/001-core-architecture.md) - Technical design and architecture
+- [API Specification](specs/api/001-public-api.md) - Public API definitions
+- [Testing Specification](specs/testing/001-test-specification.md) - Testing strategy and requirements
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please ensure:
+Contributions are welcome! This project follows **Spec-Driven Development (SDD)** methodology. Please ensure:
 
-1. Code follows the existing style (run `clang-format`)
-2. Tests pass with `ctest`
-3. Documentation is updated for API changes
+1. **Read the specs first** - All implementation details are defined in `/specs/` directory
+2. Code follows the existing style (run `clang-format`)
+3. Tests pass with `ctest`
+4. Documentation is updated for API changes
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute, including how to work with specs.
+
+**For AI Contributors:** Read [AGENTS.md](AGENTS.md) for the SDD workflow instructions.
 
 ---
 

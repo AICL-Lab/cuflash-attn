@@ -43,7 +43,7 @@ cmake --build . -j$(nproc)
 
 ```cpp
 #include <cuda_runtime.h>
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 #include <iostream>
 #include <cmath>
 

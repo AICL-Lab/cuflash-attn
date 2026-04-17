@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "flash_attention.h"
+#include "cuflash/flash_attention.h"
 
 int main() {
     float q = 0.0f;
