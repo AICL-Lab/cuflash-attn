@@ -88,13 +88,13 @@ jobs:
             ${{ runner.os }}-cmake-
 
       - name: Configure CMake
-        run: cmake -B build-${{ matrix.build-type }} --preset ${{ matrix.build-type }} -DCMAKE_CUDA_ARCHITECTURES="80"
+        run: cmake --preset ${{ matrix.build-type }} -DCMAKE_CUDA_ARCHITECTURES="80"
 
       - name: Build
-        run: cmake --build build-${{ matrix.build-type }} --preset ${{ matrix.build-type }} -j2
+        run: cmake --build --preset ${{ matrix.build-type }} -j2
 
       - name: Run tests
-        run: ctest --test-dir build-${{ matrix.build-type }} --preset ${{ matrix.build-type }} --output-on-failure -j2
+        run: ctest --preset ${{ matrix.build-type }} --output-on-failure -j2
 
   configure-minimal:
     name: Configure Minimal Build
