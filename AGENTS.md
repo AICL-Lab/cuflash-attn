@@ -1,159 +1,197 @@
-# AGENTS.md - AI Agent Workflow Instructions
+# AGENTS.md - AI Agent Instructions
 
-## Project Philosophy: Spec-Driven Development (SDD)
+## Project: CuFlash-Attn
 
-本项目严格遵循**规范驱动开发（Spec-Driven Development）**范式。所有的代码实现必须以 `/specs` 目录下的规范文档为唯一事实来源（Single Source of Truth）。
-
----
-
-## Directory Context (目录说明)
-
-| Directory | Purpose | 说明 |
-|-----------|---------|------|
-| `/specs/product/` | Product feature definitions and acceptance criteria | 产品功能定义与验收标准 |
-| `/specs/rfc/` | Technical design documents (Request for Comments) | 技术设计文档 |
-| `/specs/api/` | API interface specifications (human and machine-readable) | API 接口定义（人类可读与机器可读） |
-| `/specs/db/` | Database/schema specifications (if applicable) | 数据库 Schema 设计规范（如适用） |
-| `/specs/testing/` | Testing specifications and BDD test cases | 测试规范与 BDD 测试用例 |
-| `/docs/` | User-facing documentation (setup, tutorials, architecture) | 用户文档（安装、教程、架构说明） |
+High-performance CUDA C++ FlashAttention implementation from scratch. This is a CMake-based C++/CUDA project with Spec-Driven Development (SDD) workflow.
 
 ---
 
-## AI Agent Workflow Instructions (AI 工作流指令)
+## Critical Workflow: Spec-Driven Development (SDD)
 
-当你（AI）被要求开发一个新功能、修改现有功能或修复 Bug 时，**必须严格按照以下工作流执行，不可跳过任何步骤**：
+**ALL implementation must follow specs in `/specs/` as the single source of truth.**
 
-### Step 1: Review Specs (审查与分析)
+### Before Writing Any Code
 
-**在编写任何代码之前，首先阅读 `/specs` 目录下相关的规范文档：**
+1. **Read relevant specs FIRST:**
+   - `/specs/product/` - Product requirements & acceptance criteria
+   - `/specs/rfc/` - Technical design documents
+   - `/specs/api/` - API specifications
+   - `/specs/testing/` - Testing specifications
 
-- 产品需求文档：`/specs/product/`
-- 技术设计文档：`/specs/rfc/`
-- API 定义：`/specs/api/`
-- 测试规范：`/specs/testing/`
+2. **If user request conflicts with specs:** STOP and ask whether to update specs first
 
-**重要规则：**
-- 如果用户指令与现有 Spec 冲突，请**立即停止编码**，并指出冲突点，询问用户是否需要先更新 Spec
-- 不要在没有上下文的情况下"自由发挥"，强制第一步读取 `/specs` 可以锚定思考范围
+3. **For new features/API changes:** Propose spec updates BEFORE coding. Wait for approval.
 
-### Step 2: Spec-First Update (规范优先)
+4. **Test against spec:** Reference spec IDs in test comments (e.g., `// Validates RFC-001, Property 1`)
 
-**如果这是一个新功能，或者需要改变现有的接口/数据库结构，必须首先提议修改或创建相应的 Spec 文档：**
+### Code Generation Rules
 
-- 新增 API 端点 → 更新 `/specs/api/openapi.yaml` 或创建新的 API 规范
-- 新功能 → 创建/更新 `/specs/product/` 文档
-- 架构变更 → 在 `/specs/rfc/` 创建 RFC
-
-**等待用户确认 Spec 的修改后，才能进入代码编写阶段。**
-
-### Step 3: Implementation (代码实现)
-
-**编写代码时，必须 100% 遵守 Spec 中的定义：**
-
-- 变量命名规范
-- API 路径和端点
-- 数据类型和结构
-- HTTP 状态码和错误格式
-- 认证/授权模式
-
-**禁止事项 (No Gold-Plating)：**
-- 不要在代码中擅自添加 Spec 中未定义的功能
-- 如果遇到不确定的技术细节，请查阅 `/specs/rfc/` 下的架构约定，不要自行捏造设计模式
-
-### Step 4: Test Against Spec (测试验证)
-
-**根据 `/specs` 中的验收标准（Acceptance Criteria）编写测试：**
-
-- 编写单元测试和集成测试，确保覆盖 Spec 中描述的所有边界情况
-- 测试应该验证实现满足 Spec 的正确性属性
-- 在测试注释中引用 Spec 文档 ID（例如 `// Validates RFC-001, Property 1`）
+- API changes → Update `/specs/api/`
+- New features → Update `/specs/product/`
+- Architecture changes → Create/update `/specs/rfc/`
+- **Never** add features not defined in specs (no gold-plating)
 
 ---
 
-## Code Generation Rules (代码生成规则)
+## Build System
 
-1. **API 变更**：任何对外部暴露的 API 变更，必须同步修改 `/specs/api/` 规范
-2. **数据库变更**：任何 Schema 变更，必须先反映到 `/specs/db/`
-3. **功能新增**：新功能必须在 `/specs/product/` 中定义后才能实现
-4. **技术决策**：遇到不确定的技术细节，必须遵循 `/specs/rfc/` 中的架构约定
-5. **禁止捏造规范**：不要在运行时创建规范。如果没有规范，提议创建一个并等待批准
+CMake with presets. **Requires CUDA 11.0+ and C++17.**
+
+```bash
+# Standard release build
+cmake --preset release
+cmake --build --preset release
+
+# Run tests
+ctest --preset release --output-on-failure
+
+# Run specific test categories
+ctest --preset release -R ForwardTest    # Forward pass tests
+ctest --preset release -R BackwardTest   # Backward pass tests
+ctest --preset release -R StressTest     # Stress & edge cases
+ctest --preset release -R PyTorch        # PyTorch comparison (requires GPU + PyTorch)
+
+# Debug with AddressSanitizer
+cmake --preset debug-asan
+cmake --build --preset debug-asan
+ctest --preset debug-asan
+
+# Build all GPU architectures (sm_70-90)
+cmake --preset all-architectures
+cmake --build --preset all-architectures
+```
+
+### Build Presets Available
+
+| Preset | Use Case |
+|--------|----------|
+| `release` | Standard optimized build (default) |
+| `release-fast-math` | With `--use_fast_math` (less precise, faster) |
+| `debug-asan` | Debug with AddressSanitizer |
+| `minimal` | No tests/examples (smallest binary) |
+| `all-architectures` | sm_70,75,80,86,89,90 (V100 through H100) |
+
+**Default CUDA architectures:** sm_80, sm_86 (A100 + RTX 30xx/40xx)
 
 ---
 
-## Project Structure Overview (项目结构)
+## Project Structure
 
 ```
 cuflash-attn/
-├── specs/                      # Single Source of Truth (规范文档)
-│   ├── product/                # Product requirements & acceptance
-│   │   └── 001-flash-attention-core.md
-│   ├── rfc/                    # Technical design documents (RFCs)
-│   │   └── 001-core-architecture.md
+├── specs/                      # SDD: Single Source of Truth
+│   ├── product/                # Product requirements
+│   ├── rfc/                    # Technical design (RFCs)
 │   ├── api/                    # API specifications
-│   │   └── 001-public-api.md
-│   ├── db/                     # Database/schema specs (if applicable)
-│   │   └── README.md
-│   └── testing/                # Testing specifications
-│       └── 001-test-specification.md
-├── docs/                       # User-facing documentation
-│   ├── setup/                  # Environment setup guides
-│   ├── tutorials/              # Usage tutorials
-│   ├── architecture/           # High-level architecture
-│   ├── en/                     # English documentation
-│   ├── zh/                     # Chinese documentation
-│   └── assets/                 # Static assets (images, diagrams)
-├── include/                    # Public API headers
-│   └── flash_attention.h
-├── src/                        # Implementation source code
-├── tests/                      # Test suite
+│   └── testing/                # Testing specs
+├── include/cuflash/            # Public API headers
+│   ├── flash_attention.h       # Main API (C++ + C ABI)
+│   ├── export.h                # Visibility macros
+│   └── version.h.in            # Version template
+├── src/                        # Implementation
+│   ├── api/                    # API dispatch layer
+│   ├── forward/                # Forward kernels
+│   ├── backward/               # Backward kernels
+│   └── kernels/                # Internal kernel utilities (.cuh)
+├── tests/
+│   ├── unit/                   # Unit tests (8 files)
+│   ├── integration/            # Integration + PyTorch comparison
+│   └── package_smoke/          # Package smoke tests
+├── benchmarks/                 # Google Benchmark
 ├── examples/                   # Usage examples
-├── README.md                   # Project entry (English)
-├── README.zh-CN.md             # Project entry (Chinese)
-├── CONTRIBUTING.md             # Contribution guidelines
-├── CHANGELOG.md                # Version history
-├── LICENSE                     # MIT License
-└── AGENTS.md                   # This file - AI workflow instructions
+├── docs/                       # VitePress documentation
+└── cmake/                      # CMake modules
 ```
 
 ---
 
-## Common Commands (常用命令)
+## API Architecture
 
-### Building (构建)
+**Dual API design:** C++ namespace + C ABI for Python ctypes
+
+- `cuflash::flash_attention_forward()` / `cuflash::flash_attention_backward()` - C++ API
+- `cuflash_attention_forward_f32()` / `cuflash_attention_forward_f16()` - C ABI
+
+**Supported types:** FP32 (`float`) and FP16 (`half`)
+
+**Key constraints:**
+- `head_dim` must be 32, 64, or 128 (kernel optimization requirement)
+- Layout: [batch_size, num_heads, seq_len, head_dim]
+- Returns `FlashAttentionError` enum for error handling
+
+---
+
+## Code Quality Commands
 
 ```bash
+# Format (REQUIRED before commit - enforced in CI)
+find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs clang-format -i
+
+# clang-tidy (optional)
+clang-tidy src/api/flash_attention_api.cu -- -Iinclude
+```
+
+**CI enforces:** clang-format v17 with LLVM style
+
+---
+
+## Testing Notes
+
+- **Unit tests:** Google Test framework
+- **PyTorch comparison:** Requires `pip install -r requirements-dev.txt` and GPU
+- **Test discovery:** Uses `gtest_discover_tests` with 60s timeout
+- **Package smoke test:** Tests that installed library can be found via CMake
+
+---
+
+## Documentation
+
+Built with VitePress (Node.js 18+):
+
+```bash
+cd docs
+npm ci
+npm run docs:build
+npm run docs:dev     # Dev server
+```
+
+Published to GitHub Pages at `https://lessup.github.io/cuflash-attn/`
+
+---
+
+## Anti-Patterns to Avoid
+
+| ❌ DON'T | ✅ DO |
+|----------|-------|
+| Write code without reading specs | Read `/specs/` first |
+| Add features not in specs | Propose spec updates before code |
+| Skip formatting before commit | Run clang-format |
+| Invent API designs | Follow `/specs/api/` exactly |
+| Write tests without spec references | Reference spec IDs in comments |
+| Build without preset | Use `cmake --preset release` |
+
+---
+
+## Quick Reference
+
+```bash
+# Full development cycle
 cmake --preset release
 cmake --build --preset release
-```
-
-### Testing (测试)
-
-```bash
 ctest --preset release --output-on-failure
-```
-
-### Formatting (格式化)
-
-```bash
 find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs clang-format -i
+
+# Benchmarks
+./build/release/benchmarks/cuflash_attn_bench
+
+# Example
+./build/release/example
 ```
 
 ---
 
-## Anti-Patterns to Avoid (避免的反模式)
+## When in Doubt
 
-| ❌ DO NOT | ✅ DO |
-|-----------|-------|
-| Write code without reading specs first | Read specs before writing any code |
-| Add features not defined in specs (gold-plating) | Propose spec updates before code changes |
-| Invent API designs that aren't documented | Follow spec definitions exactly |
-| Skip spec updates when changing interfaces | Wait for user approval on spec modifications |
-| Write tests that don't cover spec acceptance criteria | Write tests that validate spec compliance |
-
----
-
-## Questions? (有问题？)
-
-如果你对任何规范或需求不确定，**请向用户寻求澄清，而不是做假设**。提问总比实现错误要好。
-
-If you're unsure about any spec or requirement, **ask the user for clarification** rather than making assumptions. It's better to ask than to implement incorrectly.
+1. Check `/specs/` for the relevant document
+2. If spec unclear or missing, **ask user** - don't assume
+3. Follow existing patterns in `/src/` and `/tests/`
