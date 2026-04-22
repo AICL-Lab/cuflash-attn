@@ -59,10 +59,10 @@ jobs:
       fail-fast: false
       matrix:
         cuda: ['12.2.0', '12.4.1']
-        build-type: [Release]
+        build-type: [release]
         include:
           - cuda: '12.4.1'
-            build-type: Debug
+            build-type: default
 
     steps:
       - name: Checkout
