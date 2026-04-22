@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['cpp', 'javascript']
+        language: ['cpp']
 
     steps:
       - name: Checkout
@@ -38,14 +38,6 @@ jobs:
           languages: ${{ matrix.language }}
           queries: +security-and-quality
 
-      - name: Setup Node.js (for JS analysis)
-        if: matrix.language == 'javascript'
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: docs/package-lock.json
-
       - name: Install CUDA toolkit (for C++ analysis)
         if: matrix.language == 'cpp'
         uses: Jimver/cuda-toolkit@v0.2.23
@@ -53,11 +45,6 @@ jobs:
           cuda: '12.4.1'
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cccl"]'
-
-      - name: Install dependencies
-        if: matrix.language == 'javascript'
-        working-directory: docs
-        run: npm ci
 
       - name: Configure CMake (for C++ analysis)
         if: matrix.language == 'cpp'

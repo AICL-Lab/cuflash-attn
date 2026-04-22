@@ -10,30 +10,30 @@
 
 // When building the library as shared, export symbols
 #if defined(CUFLASH_BUILDING_SHARED)
-#  if defined(_WIN32)
-#    define CUFLASH_EXPORT __declspec(dllexport)
-#  else
-#    define CUFLASH_EXPORT __attribute__((visibility("default")))
-#  endif
-#elif defined(CUFLASH_STATIC) || !defined(CUFLASH_SHARED)
-#  define CUFLASH_EXPORT
+#if defined(_WIN32)
+#define CUFLASH_EXPORT __declspec(dllexport)
 #else
-#  if defined(_WIN32)
-#    define CUFLASH_EXPORT __declspec(dllimport)
-#  else
-#    define CUFLASH_EXPORT
-#  endif
+#define CUFLASH_EXPORT __attribute__((visibility("default")))
+#endif
+#elif defined(CUFLASH_STATIC) || !defined(CUFLASH_SHARED)
+#define CUFLASH_EXPORT
+#else
+#if defined(_WIN32)
+#define CUFLASH_EXPORT __declspec(dllimport)
+#else
+#define CUFLASH_EXPORT
+#endif
 #endif
 
 // Deprecated function marker
 #if defined(__has_cpp_attribute)
-#  if __has_cpp_attribute(__deprecated__)
-#    define CUFLASH_DEPRECATED [[deprecated]]
-#  else
-#    define CUFLASH_DEPRECATED
-#  endif
+#if __has_cpp_attribute(__deprecated__)
+#define CUFLASH_DEPRECATED [[deprecated]]
 #else
-#  define CUFLASH_DEPRECATED
+#define CUFLASH_DEPRECATED
+#endif
+#else
+#define CUFLASH_DEPRECATED
 #endif
 
-#endif // CUFLASH_EXPORT_H
+#endif  // CUFLASH_EXPORT_H

@@ -58,10 +58,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cuda: ['12.2', '12.4']
+        cuda: ['12.2.0', '12.4.1']
         build-type: [Release]
         include:
-          - cuda: '12.4'
+          - cuda: '12.4.1'
             build-type: Debug
 
     steps:
