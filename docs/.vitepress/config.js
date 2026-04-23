@@ -36,9 +36,7 @@ const enNav = [
   { text: 'API', link: '/en/api-reference', activeMatch: '/en/api' },
   { text: 'Algorithm', link: '/en/algorithm', activeMatch: '/en/algorithm' },
   {
-    text: 'v0.2.0',
-    items: [
-      { text: 'Changelog', link: 'https://github.com/LessUp/cuflash-attn/blob/master/CHANGELOG.md' },
+    text: 'v0.3.0',
       { text: 'Releases', link: 'https://github.com/LessUp/cuflash-attn/releases' },
       { text: 'Specs', link: 'https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs' }
     ]
@@ -51,7 +49,7 @@ const zhNav = [
   { text: 'API 参考', link: '/zh/api-reference', activeMatch: '/zh/api' },
   { text: '算法详解', link: '/zh/algorithm', activeMatch: '/zh/algorithm' },
   {
-    text: 'v0.2.0',
+    text: 'v0.3.0',
     items: [
       { text: '更新日志', link: 'https://github.com/LessUp/cuflash-attn/blob/master/CHANGELOG.md' },
       { text: '发布版本', link: 'https://github.com/LessUp/cuflash-attn/releases' },

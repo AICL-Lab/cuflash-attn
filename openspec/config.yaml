@@ -4,7 +4,7 @@ project:
   name: cuflash-attn
   type: cmake-cuda-library
   description: High-performance CUDA C++ FlashAttention implementation from scratch
-  version: 0.2.0
+  version: 0.3.0
   goal: 完善收尾，发布 v0.3.0（最终版本）
 
 context: |

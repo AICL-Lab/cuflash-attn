@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(cuflash_attn VERSION 0.2.0 LANGUAGES CXX CUDA)
+project(cuflash_attn VERSION 0.3.0 LANGUAGES CXX CUDA)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
