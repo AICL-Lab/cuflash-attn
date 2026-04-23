@@ -15,14 +15,22 @@ _deps
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
+install_manifest.txt
 Makefile
 *.cmake
+
+# CTest outputs
+Testing/
+CTestTestfile.cmake
 
 # CUDA build artifacts
 *.ptx
 *.fatbin
 *.cu.o
 *.cuh.o
+*.so
+*.a
+*.dylib
 
 # IDE
 .vscode/*
@@ -60,6 +68,11 @@ coverage
 __pycache__/
 *.pyc
 *.pyo
+venv/
+.venv/
+*.egg-info/
+*.whl
+.python-version
 
 # Benchmark outputs
 benchmark_results/
