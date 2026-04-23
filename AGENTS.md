@@ -1,197 +1,154 @@
-# AGENTS.md - AI Agent Instructions
+# AGENTS.md — CuFlash-Attn AI 代理指令
 
-## Project: CuFlash-Attn
-
-High-performance CUDA C++ FlashAttention implementation from scratch. This is a CMake-based C++/CUDA project with Spec-Driven Development (SDD) workflow.
+> **回复语言**: 始终使用**中文**回复。代码注释和 API 文档保持英文。
 
 ---
 
-## Critical Workflow: Spec-Driven Development (SDD)
+## 项目本质
 
-**ALL implementation must follow specs in `/specs/` as the single source of truth.**
+CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库，使用 **OpenSpec** 规范驱动开发。当前目标：**完善收尾，发布 v0.3.0**。
 
-### Before Writing Any Code
-
-1. **Read relevant specs FIRST:**
-   - `/specs/product/` - Product requirements & acceptance criteria
-   - `/specs/rfc/` - Technical design documents
-   - `/specs/api/` - API specifications
-   - `/specs/testing/` - Testing specifications
-
-2. **If user request conflicts with specs:** STOP and ask whether to update specs first
-
-3. **For new features/API changes:** Propose spec updates BEFORE coding. Wait for approval.
-
-4. **Test against spec:** Reference spec IDs in test comments (e.g., `// Validates RFC-001, Property 1`)
-
-### Code Generation Rules
-
-- API changes → Update `/specs/api/`
-- New features → Update `/specs/product/`
-- Architecture changes → Create/update `/specs/rfc/`
-- **Never** add features not defined in specs (no gold-plating)
+| 属性 | 值 |
+|------|-----|
+| 版本 | 0.2.0（目标 0.3.0） |
+| GPU 要求 | Compute Capability 7.0+（V100→H100, sm_70-sm_90） |
+| 默认架构 | sm_80, sm_86（A100 + RTX 30/40 系列） |
+| head_dim | 只支持 **32、64、128**（kernel tile 硬编码） |
+| 数据类型 | FP32 + FP16，含前向和反向传播 |
+| 张量 layout | `[batch_size, num_heads, seq_len, head_dim]` |
 
 ---
 
-## Build System
+## OpenSpec 工作流
 
-CMake with presets. **Requires CUDA 11.0+ and C++17.**
+**所有代码变更必须通过 OpenSpec 流程：**
+
+```
+1. /opsx:propose <name>     创建变更提案（proposal.md + design.md + tasks.md）
+2. 阅读相关规范              openspec/specs/ 是唯一真相来源
+3. /opsx:apply <name>       实现变更
+4. /verify                  格式检查 + 构建 + 测试
+5. /opsx:archive <name>     归档完成的变更
+```
+
+规范文档位置：
+- `openspec/specs/design/flash-attention-design.md` — 产品需求 + 技术设计
+- `openspec/specs/verification/flash-attention-verification.md` — API 规范 + 测试规范
+
+---
+
+## 构建与测试
 
 ```bash
-# Standard release build
+# 标准构建（始终使用 preset，禁止直接 cmake -B）
 cmake --preset release
 cmake --build --preset release
+ctest --preset release --output-on-failure  # 无 GPU 时自动跳过
 
-# Run tests
-ctest --preset release --output-on-failure
+# Debug + AddressSanitizer
+cmake --preset debug-asan && cmake --build --preset debug-asan
 
-# Run specific test categories
-ctest --preset release -R ForwardTest    # Forward pass tests
-ctest --preset release -R BackwardTest   # Backward pass tests
-ctest --preset release -R StressTest     # Stress & edge cases
-ctest --preset release -R PyTorch        # PyTorch comparison (requires GPU + PyTorch)
-
-# Debug with AddressSanitizer
-cmake --preset debug-asan
-cmake --build --preset debug-asan
-ctest --preset debug-asan
-
-# Build all GPU architectures (sm_70-90)
-cmake --preset all-architectures
-cmake --build --preset all-architectures
+# 格式化（提交前必须执行，CI 强制检查）
+find . \( -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" \) \
+  ! -path "*/build/*" | xargs clang-format -i
 ```
 
-### Build Presets Available
-
-| Preset | Use Case |
-|--------|----------|
-| `release` | Standard optimized build (default) |
-| `release-fast-math` | With `--use_fast_math` (less precise, faster) |
-| `debug-asan` | Debug with AddressSanitizer |
-| `minimal` | No tests/examples (smallest binary) |
-| `all-architectures` | sm_70,75,80,86,89,90 (V100 through H100) |
-
-**Default CUDA architectures:** sm_80, sm_86 (A100 + RTX 30xx/40xx)
+**CI 说明**: GitHub runner 无 GPU，ctest 自动跳过所有 GPU 测试（`test_main.cpp` 中有 cudaGetDeviceCount 检查）。
 
 ---
 
-## Project Structure
+## CUDA 关键陷阱（Critical Pitfalls）
 
+### Stream Safety（流安全）
+```cuda
+// ❌ 错误：cudaMemset 在流外同步，破坏流顺序
+cudaMemset(workspace, 0, size);
+
+// ✅ 正确：async 版本维持流内顺序
+cudaMemsetAsync(workspace, 0, size, stream);
+cudaStreamSynchronize(stream);  // 在 workspace 释放前
 ```
-cuflash-attn/
-├── specs/                      # SDD: Single Source of Truth
-│   ├── product/                # Product requirements
-│   ├── rfc/                    # Technical design (RFCs)
-│   ├── api/                    # API specifications
-│   └── testing/                # Testing specs
-├── include/cuflash/            # Public API headers
-│   ├── flash_attention.h       # Main API (C++ + C ABI)
-│   ├── export.h                # Visibility macros
-│   └── version.h.in            # Version template
-├── src/                        # Implementation
-│   ├── api/                    # API dispatch layer
-│   ├── forward/                # Forward kernels
-│   ├── backward/               # Backward kernels
-│   └── kernels/                # Internal kernel utilities (.cuh)
-├── tests/
-│   ├── unit/                   # Unit tests (8 files)
-│   ├── integration/            # Integration + PyTorch comparison
-│   └── package_smoke/          # Package smoke tests
-├── benchmarks/                 # Google Benchmark
-├── examples/                   # Usage examples
-├── docs/                       # VitePress documentation
-└── cmake/                      # CMake modules
+
+### 错误处理
+```cpp
+// 每个 CUDA 调用后必须检查返回值
+if (cudaMalloc(&ptr, size) != cudaSuccess) {
+    return FlashAttentionError::CUDA_ERROR;
+}
+// 不要 throw，通过 FlashAttentionError 枚举向上传递
+```
+
+### 内存布局（不可变约定）
+```
+张量 offset = ((batch * num_heads + head) * seq_len + seq) * head_dim + dim
+// Q/K/V/O 全部遵循此 offset 计算
+```
+
+### Kernel 启动参数
+```cuda
+// 块大小固定为 128（__launch_bounds__ 设置）
+// Grid = (num_heads * batch_size) 个块
+// 不要修改 tiling 逻辑而不更新规范
 ```
 
 ---
 
-## API Architecture
+## 代码规范
 
-**Dual API design:** C++ namespace + C ABI for Python ctypes
-
-- `cuflash::flash_attention_forward()` / `cuflash::flash_attention_backward()` - C++ API
-- `cuflash_attention_forward_f32()` / `cuflash_attention_forward_f16()` - C ABI
-
-**Supported types:** FP32 (`float`) and FP16 (`half`)
-
-**Key constraints:**
-- `head_dim` must be 32, 64, or 128 (kernel optimization requirement)
-- Layout: [batch_size, num_heads, seq_len, head_dim]
-- Returns `FlashAttentionError` enum for error handling
+- **格式**: Google style + IndentWidth=4 + ColumnLimit=100（`.clang-format`）
+- **命名**: namespace `lower_case`，class `CamelCase`，function `lower_case`，const `UPPER_CASE`
+- **可见性**: 默认隐藏，导出用 `CUFLASH_EXPORT`（`include/cuflash/export.h`）
+- **Commit**: Conventional commits — `feat(api):`、`fix(kernel):`、`docs(guide):`
 
 ---
 
-## Code Quality Commands
+## 测试规范
 
-```bash
-# Format (REQUIRED before commit - enforced in CI)
-find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs clang-format -i
-
-# clang-tidy (optional)
-clang-tidy src/api/flash_attention_api.cu -- -Iinclude
+```cpp
+// 测试注释必须引用 spec ID
+// Validates REQ-1.1, Property 1 - 数值等价性（误差 < 1e-3）
+TEST(ForwardTest, NumericalEquivalence) { ... }
 ```
 
-**CI enforces:** clang-format v17 with LLVM style
-
----
-
-## Testing Notes
-
-- **Unit tests:** Google Test framework
-- **PyTorch comparison:** Requires `pip install -r requirements-dev.txt` and GPU
-- **Test discovery:** Uses `gtest_discover_tests` with 60s timeout
-- **Package smoke test:** Tests that installed library can be found via CMake
-
----
-
-## Documentation
-
-Built with VitePress (Node.js 18+):
-
-```bash
-cd docs
-npm ci
-npm run docs:build
-npm run docs:dev     # Dev server
+**测试目录结构:**
 ```
-
-Published to GitHub Pages at `https://lessup.github.io/cuflash-attn/`
-
----
-
-## Anti-Patterns to Avoid
-
-| ❌ DON'T | ✅ DO |
-|----------|-------|
-| Write code without reading specs | Read `/specs/` first |
-| Add features not in specs | Propose spec updates before code |
-| Skip formatting before commit | Run clang-format |
-| Invent API designs | Follow `/specs/api/` exactly |
-| Write tests without spec references | Reference spec IDs in comments |
-| Build without preset | Use `cmake --preset release` |
-
----
-
-## Quick Reference
-
-```bash
-# Full development cycle
-cmake --preset release
-cmake --build --preset release
-ctest --preset release --output-on-failure
-find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs clang-format -i
-
-# Benchmarks
-./build/release/benchmarks/cuflash_attn_bench
-
-# Example
-./build/release/example
+tests/unit/        8 个单元测试（forward/backward/causal/fp16/softmax/error/stress）
+tests/integration/ PyTorch 数值对比（需要 GPU + PyTorch）
+tests/package_smoke/ 安装验证
 ```
 
 ---
 
-## When in Doubt
+## Git 分支策略
 
-1. Check `/specs/` for the relevant document
-2. If spec unclear or missing, **ask user** - don't assume
-3. Follow existing patterns in `/src/` and `/tests/`
+- **始终在 master 工作**，禁止创建长期未合并的功能分支
+- 使用 `git tag v0.x.x` 标记版本，通过 tag push 触发 release workflow
+- 每次 push 自动触发 CI（format check + build + test skip on no GPU）
+
+---
+
+## 工具协作模式
+
+| 工具 | 最佳使用场景 |
+|------|-------------|
+| **Copilot** (本工具) | 快速代码补全、文档编写、`/review` 代码审查 |
+| **Claude Code** | 复杂跨文件重构、`/opsx:propose`、`/opsx:apply` |
+| **Codex CLI** | 批处理任务、自动化 PR 处理 |
+
+**Review 流程**: 实现后运行 `/review` 进行代码审查再提交。
+
+---
+
+## 禁止模式（Anti-patterns）
+
+| ❌ 禁止 | ✅ 应该 |
+|---------|---------|
+| 不读规范就写代码 | 先读 `openspec/specs/`，再实现 |
+| 添加 spec 未定义的功能 | 先 `/opsx:propose` 更新规范 |
+| 使用同步 CUDA 操作（cudaMemset） | 用 cudaMemsetAsync |
+| 不检查 CUDA 错误 | 每次调用都检查，返回 FlashAttentionError |
+| 直接 cmake -B 构建 | 使用 cmake --preset |
+| 创建长期功能分支 | 直接在 master 上 commit |
+| 提交前不格式化 | 运行 clang-format |
+| 修改 head_dim 支持范围不更新 kernel tiling | 同步更新 kernel 和规范 |
+

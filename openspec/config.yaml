@@ -1,0 +1,164 @@
+# OpenSpec Configuration for CuFlash-Attn
+
+project:
+  name: cuflash-attn
+  type: cmake-cuda-library
+  description: High-performance CUDA C++ FlashAttention implementation from scratch
+  version: 0.2.0
+  goal: 完善收尾，发布 v0.3.0（最终版本）
+
+context: |
+  ## Project Context
+
+  CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库。项目处于收尾阶段，目标是
+  修复所有已知问题，完善文档，发布 v0.3.0。
+
+  ### Technology Stack
+  - Language: C++17 / CUDA C++17
+  - Build System: CMake 3.18+ with Ninja + presets
+  - Testing: Google Test (unit), PyTorch comparison (integration)
+  - Documentation: VitePress (bilingual EN/ZH)
+  - CI/CD: GitHub Actions
+
+  ### Key Constraints
+  - CUDA Toolkit 12.x recommended (minimum 11.0)
+  - GPU compute capability 7.0+ (V100, A100, RTX 20/30/40 series, H100)
+  - head_dim must be 32, 64, or 128 (kernel tile size is hardcoded)
+  - Supported data types: FP32 (float) and FP16 (half)
+  - Tensor layout: [batch_size, num_heads, seq_len, head_dim]
+  - Stream safety: use cudaMemsetAsync not cudaMemset
+
+  ### Build Commands
+  ```bash
+  cmake --preset release
+  cmake --build --preset release
+  ctest --preset release --output-on-failure
+  # Format (Google style, IndentWidth=4, ColumnLimit=100):
+  find . \( -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" \) \
+    ! -path "*/build/*" | xargs clang-format -i
+  ```
+
+  ### API Design
+  - C++ namespace API: `cuflash::flash_attention_forward/backward()`
+  - C ABI for Python ctypes: `cuflash_attention_forward_f32/f16()`
+  - Error handling via `FlashAttentionError` enum (no exceptions)
+
+rules:
+  spec-first-development:
+    description: |
+      CRITICAL: 所有实现必须以 openspec/specs/ 为唯一真相来源。
+
+      编写任何代码前：
+      1. 先阅读相关规范
+      2. 如果请求与规范冲突，停止并询问是否先更新规范
+      3. 新功能/API 变更，先提 spec 变更再写代码
+      4. 测试中引用 spec ID：// Validates REQ-1.1, Property 1
+
+      不添加规范中未定义的功能（no gold-plating）。
+
+  change-proposal-workflow:
+    description: |
+      所有变更使用 /opsx:propose：
+
+      1. /opsx:propose <change-name> 创建提案
+      2. 在 proposal.md 中写清意图
+      3. 在 design.md 中写技术设计
+      4. 在 tasks.md 中列任务（checkbox 格式）
+      5. /opsx:apply 实现
+      6. /verify 验证（格式+构建+测试）
+      7. /opsx:archive 归档
+
+  git-branch-strategy:
+    description: |
+      单分支开发策略：
+      - 始终在 master 分支工作
+      - 使用 git tag v0.x.x 标记版本
+      - 禁止创建长期未合并的功能分支
+      - tag push 触发 release workflow
+      - conventional commits: feat(scope): / fix(scope): / docs(scope):
+
+  code-format:
+    description: |
+      格式规范: Google style with overrides (IndentWidth=4, ColumnLimit=100)
+      配置文件: .clang-format (BasedOnStyle: Google)
+
+      提交前必须运行：
+      find . \( -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" \) \
+        ! -path "*/build/*" | xargs clang-format -i
+
+      CI 使用 clang-format v17 强制检查。
+
+  cuda-stream-safety:
+    description: |
+      CUDA 流安全规则（关键，避免 race condition）：
+      - 使用 cudaMemsetAsync 而非 cudaMemset
+      - workspace 释放前调用 cudaStreamSynchronize
+      - 检查所有 cudaMalloc 返回值
+      - 通过 FlashAttentionError 枚举传递错误，不抛异常
+
+  api-changes:
+    description: |
+      API 变更需要：
+      1. 更新 openspec/specs/verification/ API 文档
+      2. 更新 include/cuflash/ 头文件
+      3. 更新 C ABI（如需要）
+      4. 添加/更新带 spec 引用的测试
+
+  build-with-presets:
+    description: |
+      始终使用 CMake presets：
+      - release: 标准优化构建（默认）
+      - debug-asan: Debug + AddressSanitizer
+      - all-architectures: sm_70 through sm_90
+
+      禁止不使用 preset 直接构建。
+
+  ai-tool-collaboration:
+    description: |
+      工具协作模式：
+      - Copilot: 代码补全、文档、/review 审查
+      - Claude Code: 复杂重构、/opsx:propose、/opsx:apply
+      - Codex CLI: 批处理任务
+
+      代码实现后运行 /review 审查再提交。
+      回复始终使用中文，代码注释和 API 文档保持英文。
+
+anti_patterns:
+  - donot: 不读规范就写代码
+    do: 先读 openspec/specs/
+
+  - donot: 添加 spec 未定义的功能
+    do: 先 /opsx:propose 更新规范
+
+  - donot: 使用同步 CUDA 操作（cudaMemset）
+    do: 用 cudaMemsetAsync
+
+  - donot: 不检查 CUDA 错误返回值
+    do: 检查每次 CUDA 调用，返回 FlashAttentionError
+
+  - donot: 直接 cmake -B 构建
+    do: cmake --preset release
+
+  - donot: 创建长期功能分支
+    do: 在 master 直接 commit
+
+  - donot: 提交前不格式化
+    do: 运行 clang-format
+
+quick_reference:
+  build_cycle: |
+    cmake --preset release
+    cmake --build --preset release
+    ctest --preset release --output-on-failure
+    find . \( -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" \) \
+      ! -path "*/build/*" | xargs clang-format -i
+
+  lsp_setup: |
+    # 生成 compile_commands.json（clangd LSP 需要）
+    cmake --preset release
+    # 之后 clangd 自动读取 build/release/compile_commands.json
+
+  docs: |
+    cd docs && npm ci && npm run docs:build
+    # 发布到 https://lessup.github.io/cuflash-attn/
+

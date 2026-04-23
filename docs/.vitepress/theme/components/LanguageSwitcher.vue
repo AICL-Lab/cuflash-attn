@@ -1,5 +1,5 @@
 <template>
-  <div class="language-switcher" ref="switcherRef">
+  <div v-if="!isRootPage" class="language-switcher" ref="switcherRef">
     <button class="lang-button" @click="isOpen = !isOpen">
       <span class="lang-label">{{ currentLang.label }}</span>
       <svg class="chevron" :class="{ open: isOpen }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -8,8 +8,13 @@
     </button>
     <Transition name="dropdown">
       <div v-show="isOpen" class="lang-dropdown">
-        <a v-for="lang in availableLangs" :key="lang.code" :href="getLangLink(lang)" class="lang-option">
+        <a v-for="lang in availableLangs" :key="lang.code" :href="getLangLink(lang)" class="lang-option" @click="isOpen = false">
           <span>{{ lang.label }}</span>
+        </a>
+        <div class="lang-divider"></div>
+        <a href="/cuflash-attn/" class="lang-option lang-home">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <span>Language / 语言</span>
         </a>
       </div>
     </Transition>
@@ -17,24 +22,42 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useData } from 'vitepress'
 
 const { lang } = useData()
 const isOpen = ref(false)
+const isRootPage = ref(false)
+
+onMounted(() => {
+  // 检测是否在根页面（语言选择页）
+  const path = window.location.pathname
+  isRootPage.value = path === '/' || path === '/cuflash-attn/' || path === '/cuflash-attn' || path === ''
+})
 
 const languages = [
-  { code: 'root', label: 'English', link: '/en/' },
+  { code: 'en', label: 'English', link: '/en/' },
   { code: 'zh', label: '简体中文', link: '/zh/' }
 ]
 
 const currentLang = computed(() => languages.find(l => l.code === lang.value) || languages[0])
 const availableLangs = computed(() => languages.filter(l => l.code !== currentLang.value.code))
 
-const getLangLink = (lang) => {
-  if (typeof window === 'undefined') return lang.link
+const getLangLink = (targetLang) => {
+  if (typeof window === 'undefined') return targetLang.link
   const path = window.location.pathname
-  return path.replace(/^\/[^/]+\//, lang.link)
+  // Remove base path if present
+  const basePath = '/cuflash-attn'
+  let cleanPath = path.startsWith(basePath) ? path.slice(basePath.length) : path
+  // Replace current locale with target locale
+  const currentCode = currentLang.value.code
+  if (cleanPath.startsWith(`/${currentCode}/`)) {
+    cleanPath = cleanPath.replace(`/${currentCode}/`, targetLang.link)
+  } else {
+    // If not in a locale path, just go to the target lang root
+    return targetLang.link
+  }
+  return cleanPath
 }
 </script>
 
@@ -100,6 +123,19 @@ const getLangLink = (lang) => {
 .lang-option:hover {
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-brand);
+}
+
+.lang-divider {
+  height: 1px;
+  background: var(--vp-c-border);
+  margin: 4px 0;
+}
+
+.lang-home {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vp-c-text-3);
 }
 
 .dropdown-enter-active, .dropdown-leave-active {

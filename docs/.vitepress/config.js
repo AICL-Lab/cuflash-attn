@@ -36,11 +36,11 @@ const enNav = [
   { text: 'API', link: '/en/api-reference', activeMatch: '/en/api' },
   { text: 'Algorithm', link: '/en/algorithm', activeMatch: '/en/algorithm' },
   {
-    text: 'v0.1.0',
+    text: 'v0.2.0',
     items: [
       { text: 'Changelog', link: 'https://github.com/LessUp/cuflash-attn/blob/master/CHANGELOG.md' },
       { text: 'Releases', link: 'https://github.com/LessUp/cuflash-attn/releases' },
-      { text: 'Specs', link: 'https://github.com/LessUp/cuflash-attn/tree/master/specs' }
+      { text: 'Specs', link: 'https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs' }
     ]
   }
 ]
@@ -51,10 +51,11 @@ const zhNav = [
   { text: 'API 参考', link: '/zh/api-reference', activeMatch: '/zh/api' },
   { text: '算法详解', link: '/zh/algorithm', activeMatch: '/zh/algorithm' },
   {
-    text: 'v0.1.0',
+    text: 'v0.2.0',
     items: [
       { text: '更新日志', link: 'https://github.com/LessUp/cuflash-attn/blob/master/CHANGELOG.md' },
-      { text: '发布版本', link: 'https://github.com/LessUp/cuflash-attn/releases' }
+      { text: '发布版本', link: 'https://github.com/LessUp/cuflash-attn/releases' },
+      { text: '规范文档', link: 'https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs' }
     ]
   }
 ]
@@ -191,7 +192,7 @@ export default withPwa(
   defineConfig({
     // 站点元数据
     title: 'CuFlash-Attn',
-    titleTemplate: ':title - CuFlash-Attn',
+    titleTemplate: ':title | CuFlash-Attn',
     description: 'High-performance CUDA C++ FlashAttention implementation from scratch',
     lang: 'en-US',
 
@@ -201,11 +202,12 @@ export default withPwa(
     // 头信息
     head: sharedHead,
 
-    // 国际化配置
+    // 国际化配置 - 只有 /en/ 和 /zh/ 两个 locale，根路径是独立的语言选择页
     locales: {
-      root: {
+      en: {
         label: 'English',
         lang: 'en',
+        link: '/en/',
         themeConfig: {
           nav: enNav,
           sidebar: enSidebar,
@@ -251,18 +253,6 @@ export default withPwa(
       // 站点标题
       siteTitle: 'CuFlash-Attn',
 
-      // 导航栏
-      nav: enNav,
-
-      // 侧边栏
-      sidebar: enSidebar,
-
-      // 右侧目录
-      outline: {
-        level: 'deep',
-        label: 'On this page'
-      },
-
       // 社交链接
       socialLinks: [
         { icon: 'github', link: 'https://github.com/LessUp/cuflash-attn' }
@@ -307,7 +297,6 @@ export default withPwa(
 
     // Vite 配置
     vite: {
-      // 别名
       resolve: {
         alias: {
           '@': '/.vitepress'
@@ -315,16 +304,16 @@ export default withPwa(
       }
     },
 
-    // 源目录
     srcDir: '.',
 
     // 源文件排除
     srcExclude: ['**/(README|CHANGELOG|LICENSE|package)*'],
 
-    // Sitemap
-    sitemap: {
-      hostname: 'https://lessup.github.io/cuflash-attn'
-    },
+    // Sitemap disabled - VitePress has issues with base path in sitemap URLs
+    // https://github.com/vuejs/vitepress/issues/...
+    // sitemap: {
+    //   hostname: 'https://lessup.github.io/cuflash-attn'
+    // },
 
     // 最后更新时间
     lastUpdated: true,

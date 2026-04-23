@@ -10,6 +10,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
+# Export compile_commands.json for clangd LSP support
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # CUDA architecture (configurable, default to common architectures)
 if(NOT CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 80 86)  # A100 + RTX 30xx/40xx as default

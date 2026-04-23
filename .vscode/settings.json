@@ -1,3 +1,47 @@
 {
-    "kiroAgent.configureMCP": "Disabled"
+  "kiroAgent.configureMCP": "Disabled",
+
+  // C++/CUDA language server (clangd)
+  "clangd.arguments": [
+    "--compile-commands-dir=${workspaceFolder}/build/release",
+    "--background-index",
+    "--clang-tidy",
+    "--header-insertion=iwyu",
+    "--suggest-missing-includes"
+  ],
+  "clangd.fallbackFlags": [
+    "-I${workspaceFolder}/include",
+    "-I${workspaceFolder}/src/kernels",
+    "--cuda-gpu-arch=sm_86"
+  ],
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+    "editor.formatOnSave": true
+  },
+  "[cuda-cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+    "editor.formatOnSave": true
+  },
+  "files.associations": {
+    "*.cu": "cuda-cpp",
+    "*.cuh": "cuda-cpp"
+  },
+  "cmake.buildDirectory": "${workspaceFolder}/build/release",
+  "cmake.configureArgs": ["-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"],
+
+  // Editor
+  "editor.rulers": [100],
+  "editor.tabSize": 4,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // Exclude build artifacts from search
+  "search.exclude": {
+    "**/build/**": true,
+    "**/node_modules/**": true,
+    "**/_deps/**": true
+  },
+  "files.exclude": {
+    "**/build/**": false
+  }
 }

@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔧 Chore | 工程整治
+
+#### CI/CD
+- Fix `pages.yml`: remove non-existent root `package.json`/`package-lock.json` triggers
+- Fix `release.yml`: unify to `cmake --preset release` (remove redundant `-B` flag)
+- Fix `docs/.vitepress/config.js`: correct "Specs" nav links from `specs/` to `openspec/specs`
+
+#### Tooling
+- Add `.clangd` LSP configuration (CUDA paths, sm_86, diagnostics)
+- Add `CMAKE_EXPORT_COMPILE_COMMANDS=ON` for LSP `compile_commands.json` generation
+- Update `.vscode/settings.json` with full clangd/CUDA development settings
+- Add `.github/copilot-instructions.md` (project-level Copilot instructions, Chinese responses)
+- Add `.github/pull_request_template.md`
+- Add `.github/ISSUE_TEMPLATE/bug_report.md` (CUDA-specific bug template)
+
+#### Documentation
+- Rewrite `AGENTS.md`: high-density CUDA traps, build commands, tool collaboration
+- Rewrite `openspec/config.yaml`: Google style (not LLVM), branch strategy, AI tools
+- Fix `docs/en/index.md` and `docs/zh/index.md`: update broken `specs/` links to `openspec/specs/`
+- Rewrite `CONTRIBUTING.md`: from generic template to project-specific 40-line guide
+
+#### Cleanup
+- Delete `QWEN.md` (stale v0.1.0, wrong paths)
+- Delete `specs.archived/` (old spec structure, superseded by `openspec/specs/`)
+- Delete `CODE_OF_CONDUCT.md` (generic template, no value)
+
 ---
 
 ## [0.2.0] - 2026-04-16
