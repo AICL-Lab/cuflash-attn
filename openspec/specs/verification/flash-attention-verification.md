@@ -188,46 +188,32 @@ index = ((batch * num_heads + head) * seq_len + seq) * head_dim + dim
 
 ## C ABI Interface
 
-For Python integration via ctypes, the C ABI provides:
+For Python integration via ctypes, the C ABI provides typed wrappers (return value is the
+integer representation of `FlashAttentionError`):
 
 ```c
-// C-compatible forward function
-CUFLASH_API int cuflash_flash_attention_forward(
-    const void* Q,
-    const void* K,
-    const void* V,
-    void* O,
-    void* L,
-    int batch_size,
-    int num_heads,
-    int seq_len,
-    int head_dim,
-    float scale,
-    int causal,
-    int dtype,  // 0=FP32, 1=FP16
-    void* stream
+// FP32 variants
+int cuflash_attention_forward_f32(
+    const float* Q, const float* K, const float* V,
+    float* O, float* L,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
 );
 
-// C-compatible backward function
-CUFLASH_API int cuflash_flash_attention_backward(
-    const void* Q,
-    const void* K,
-    const void* V,
-    const void* O,
-    const void* L,
-    const void* dO,
-    void* dQ,
-    void* dK,
-    void* dV,
-    int batch_size,
-    int num_heads,
-    int seq_len,
-    int head_dim,
-    float scale,
-    int causal,
-    int dtype,
-    void* stream
+int cuflash_attention_backward_f32(
+    const float* Q, const float* K, const float* V,
+    const float* O, const float* L, const float* dO,
+    float* dQ, float* dK, float* dV,
+    int batch_size, int num_heads, int seq_len, int head_dim,
+    float scale, bool causal, cudaStream_t stream
 );
+
+// FP16 variants (same signatures with half* pointers)
+int cuflash_attention_forward_f16(...);
+int cuflash_attention_backward_f16(...);
+
+// Error helper (C ABI; takes the int error code returned above)
+const char* cuflash_error_string(int error_code);
 ```
 
 ---

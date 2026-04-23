@@ -173,9 +173,6 @@ template __global__ void flash_attention_forward_kernel<64, 64, 32>(const float*
 template __global__ void flash_attention_forward_kernel<64, 64, 64>(const float*, const float*,
                                                                     const float*, float*, float*,
                                                                     int, float, bool);
-template __global__ void flash_attention_forward_kernel<64, 64, 128>(const float*, const float*,
-                                                                     const float*, float*, float*,
-                                                                     int, float, bool);
 template __global__ void flash_attention_forward_kernel<32, 32, 128>(const float*, const float*,
                                                                      const float*, float*, float*,
                                                                      int, float, bool);

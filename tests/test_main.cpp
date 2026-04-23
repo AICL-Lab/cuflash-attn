@@ -4,7 +4,6 @@
 #include <cstring>
 #include <iostream>
 
-
 namespace {
 
 bool is_listing_tests(int argc, char** argv) {

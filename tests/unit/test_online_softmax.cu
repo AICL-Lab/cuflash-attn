@@ -13,7 +13,7 @@
 #include <vector>
 
 // Include the online softmax implementation
-#include "../src/kernels/online_softmax.cuh"
+#include "../../src/kernels/online_softmax.cuh"
 
 namespace cuflash {
 namespace test {

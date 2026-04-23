@@ -25,12 +25,6 @@ FlashAttentionError flash_attention_backward_fp16(const half* Q, const half* K, 
                                                   int num_heads, int seq_len, int head_dim,
                                                   float scale, bool causal, cudaStream_t stream);
 
-FlashAttentionError launch_flash_attention_forward_fp16(const half* Q, const half* K, const half* V,
-                                                        half* O, half* L, int batch_size,
-                                                        int num_heads, int seq_len, int head_dim,
-                                                        float scale, bool causal,
-                                                        cudaStream_t stream);
-
 const char* get_error_string(FlashAttentionError error) {
     switch (error) {
         case FlashAttentionError::SUCCESS:
@@ -185,5 +179,9 @@ int cuflash_attention_backward_f16(const half* Q, const half* K, const half* V, 
     return static_cast<int>(cuflash::flash_attention_backward(Q, K, V, O, L, dO, dQ, dK, dV,
                                                               batch_size, num_heads, seq_len,
                                                               head_dim, scale, causal, stream));
+}
+
+const char* cuflash_error_string(int error_code) {
+    return cuflash::get_error_string(static_cast<cuflash::FlashAttentionError>(error_code));
 }
 }

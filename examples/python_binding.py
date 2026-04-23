@@ -54,9 +54,9 @@ def load_library(lib_path=None):
         lib_path = find_library()
     
     lib = ctypes.CDLL(lib_path)
-    
-    # Setup flash_attention_forward
-    lib.flash_attention_forward.argtypes = [
+
+    # Setup cuflash_attention_forward_f32
+    lib.cuflash_attention_forward_f32.argtypes = [
         ctypes.c_void_p,  # Q
         ctypes.c_void_p,  # K
         ctypes.c_void_p,  # V
@@ -68,17 +68,18 @@ def load_library(lib_path=None):
         ctypes.c_int,     # head_dim
         ctypes.c_float,   # scale
         ctypes.c_bool,    # causal
+        ctypes.c_void_p,  # stream (cudaStream_t, pass None for default stream)
     ]
-    lib.flash_attention_forward.restype = ctypes.c_int
-    
-    # Setup flash_attention_backward
-    lib.flash_attention_backward.argtypes = [
+    lib.cuflash_attention_forward_f32.restype = ctypes.c_int
+
+    # Setup cuflash_attention_backward_f32
+    lib.cuflash_attention_backward_f32.argtypes = [
         ctypes.c_void_p,  # Q
         ctypes.c_void_p,  # K
         ctypes.c_void_p,  # V
         ctypes.c_void_p,  # O
-        ctypes.c_void_p,  # dO (output gradient)
         ctypes.c_void_p,  # L
+        ctypes.c_void_p,  # dO (output gradient)
         ctypes.c_void_p,  # dQ (Q gradient)
         ctypes.c_void_p,  # dK (K gradient)
         ctypes.c_void_p,  # dV (V gradient)
@@ -88,13 +89,14 @@ def load_library(lib_path=None):
         ctypes.c_int,     # head_dim
         ctypes.c_float,   # scale
         ctypes.c_bool,    # causal
+        ctypes.c_void_p,  # stream (cudaStream_t, pass None for default stream)
     ]
-    lib.flash_attention_backward.restype = ctypes.c_int
-    
+    lib.cuflash_attention_backward_f32.restype = ctypes.c_int
+
     # Setup error string function
-    lib.flash_attention_error_string.argtypes = [ctypes.c_int]
-    lib.flash_attention_error_string.restype = ctypes.c_char_p
-    
+    lib.cuflash_error_string.argtypes = [ctypes.c_int]
+    lib.cuflash_error_string.restype = ctypes.c_char_p
+
     return lib
 
 
@@ -107,7 +109,7 @@ class CuFlashAttn:
     def check_error(self, error_code):
         """Check error code and raise exception if needed."""
         if error_code != 0:
-            error_msg = self.lib.flash_attention_error_string(error_code)
+            error_msg = self.lib.cuflash_error_string(error_code)
             raise RuntimeError(f"CuFlash-Attn error {error_code}: {error_msg.decode('utf-8')}")
     
     def forward(self, Q, K, V, causal=False, scale=None):
@@ -140,8 +142,8 @@ class CuFlashAttn:
         if use_cupy:
             O = cp.empty_like(Q)
             L = cp.empty((B, H, N), dtype=np.float32)
-            
-            result = self.lib.flash_attention_forward(
+
+            result = self.lib.cuflash_attention_forward_f32(
                 ctypes.c_void_p(Q.data.ptr),
                 ctypes.c_void_p(K.data.ptr),
                 ctypes.c_void_p(V.data.ptr),
@@ -149,19 +151,20 @@ class CuFlashAttn:
                 ctypes.c_void_p(L.data.ptr),
                 B, H, N, D,
                 ctypes.c_float(scale),
-                causal
+                causal,
+                None  # stream: None = default CUDA stream
             )
         else:
             # Use PyTorch as fallback for GPU memory management
             import torch
-            
+
             if not torch.cuda.is_available():
                 raise RuntimeError("CUDA is required for CuFlash-Attn")
-            
+
             O = torch.empty_like(Q)
             L = torch.empty((B, H, N), dtype=torch.float32, device=Q.device)
-            
-            result = self.lib.flash_attention_forward(
+
+            result = self.lib.cuflash_attention_forward_f32(
                 ctypes.c_void_p(Q.data_ptr()),
                 ctypes.c_void_p(K.data_ptr()),
                 ctypes.c_void_p(V.data_ptr()),
@@ -169,7 +172,8 @@ class CuFlashAttn:
                 ctypes.c_void_p(L.data_ptr()),
                 B, H, N, D,
                 ctypes.c_float(scale),
-                causal
+                causal,
+                None  # stream: None = default CUDA stream
             )
         
         self.check_error(result)

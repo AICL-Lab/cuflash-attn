@@ -80,6 +80,9 @@ CUFLASH_EXPORT int cuflash_attention_backward_f16(const half* Q, const half* K, 
                                                   int num_heads, int seq_len, int head_dim,
                                                   float scale, bool causal, cudaStream_t stream);
 
+// Returns a human-readable string for the given error code (integer cast of FlashAttentionError).
+CUFLASH_EXPORT const char* cuflash_error_string(int error_code);
+
 #ifdef __cplusplus
 }
 #endif
