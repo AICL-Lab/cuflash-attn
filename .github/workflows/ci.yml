@@ -3,8 +3,28 @@ name: CI
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - "docs/**"
+      - "openspec/**"
+      - "README*.md"
+      - "CHANGELOG.md"
+      - "AGENTS.md"
+      - "CLAUDE*.md"
+      - "CONTRIBUTING.md"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/copilot-instructions.md"
   pull_request:
     branches: [main, master]
+    paths-ignore:
+      - "docs/**"
+      - "openspec/**"
+      - "README*.md"
+      - "CHANGELOG.md"
+      - "AGENTS.md"
+      - "CLAUDE*.md"
+      - "CONTRIBUTING.md"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/copilot-instructions.md"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +48,7 @@ jobs:
           clang-format-version: '17'
           check-path: '.'
           exclude-regex: '(^|/)(build|third_party|external|vendor|\.git)(/|$)'
-          fallback-style: 'LLVM'
+          fallback-style: 'Google'
 
   docs-build:
     name: Docs Build Check
@@ -53,16 +73,8 @@ jobs:
         run: npm run docs:build
 
   build-test:
-    name: Build & Test (${{ matrix.build-type }} - CUDA ${{ matrix.cuda }})
+    name: Build & Test (Release)
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        cuda: ['12.2.0', '12.4.1']
-        build-type: [release]
-        include:
-          - cuda: '12.4.1'
-            build-type: default
 
     steps:
       - name: Checkout
@@ -71,33 +83,21 @@ jobs:
       - name: Install CUDA toolkit
         uses: Jimver/cuda-toolkit@v0.2.23
         with:
-          cuda: '${{ matrix.cuda }}'
+          cuda: '12.4.1'
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cccl"]'
 
-      - name: Cache CMake dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            _deps
-            ~/.cache/pip
-          key: ${{ runner.os }}-cmake-${{ matrix.cuda }}-${{ matrix.build-type }}-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-cmake-${{ matrix.cuda }}-${{ matrix.build-type }}-
-            ${{ runner.os }}-cmake-${{ matrix.cuda }}-
-            ${{ runner.os }}-cmake-
-
       - name: Configure CMake
-        run: cmake --preset ${{ matrix.build-type }} -DCMAKE_CUDA_ARCHITECTURES="80"
+        run: cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80"
 
       - name: Build
-        run: cmake --build --preset ${{ matrix.build-type }} -j2
+        run: cmake --build --preset release -j2
 
       - name: Install Python test dependencies
         run: python3 -m pip install -r tests/integration/requirements.txt
 
       - name: Run tests
-        run: ctest --preset ${{ matrix.build-type }} --output-on-failure -j2
+        run: ctest --preset release --output-on-failure -j2
 
   configure-minimal:
     name: Configure Minimal Build
@@ -112,15 +112,6 @@ jobs:
           cuda: '12.4.1'
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cccl"]'
-
-      - name: Cache CMake dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            _deps
-            ~/.cache/pip
-          key: ${{ runner.os }}-cmake-minimal-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: ${{ runner.os }}-cmake-minimal-
 
       - name: Configure CMake minimal preset
         run: cmake --preset minimal

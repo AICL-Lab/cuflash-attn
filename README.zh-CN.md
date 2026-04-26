@@ -16,6 +16,13 @@
 
 CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育学习**、**研究实验**和**生产集成**而优化。
 
+### 项目状态
+
+- **状态**：稳定的 `v0.3.0` 代码库，正在做最终治理收敛
+- **真相源**：[`openspec/specs/`](openspec/specs/)
+- **定位**：可归档的高质量参考实现，适合学习、审计与轻量集成
+- **当前重点**：继续收敛文档、工作流、AI 指令和长尾缺陷，而不是扩展新功能
+
 ### 为什么选择 CuFlash-Attn？
 
 | 挑战 | 解决方案 |
@@ -162,16 +169,16 @@ import numpy as np
 import torch
 
 # 加载动态库
-lib = ctypes.CDLL("./build/release/libcuflashattn.so")
+lib = ctypes.CDLL("./build/release/libcuflash_attn.so")
 
 # 定义 API
-lib.flash_attention_forward.argtypes = [
+lib.cuflash_attention_forward_f32.argtypes = [
     ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
     ctypes.c_void_p, ctypes.c_void_p,
     ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-    ctypes.c_float, ctypes.c_bool
+    ctypes.c_float, ctypes.c_bool, ctypes.c_void_p
 ]
-lib.flash_attention_forward.restype = ctypes.c_int
+lib.cuflash_attention_forward_f32.restype = ctypes.c_int
 
 # 使用 PyTorch 准备数据
 B, H, N, D = 2, 8, 1024, 64
@@ -183,13 +190,13 @@ L = torch.empty(B, H, N, dtype=torch.float32, device='cuda')
 
 # 调用 CuFlash-Attn
 scale = 1.0 / np.sqrt(D)
-result = lib.flash_attention_forward(
+result = lib.cuflash_attention_forward_f32(
     ctypes.c_void_p(Q.data_ptr()),
     ctypes.c_void_p(K.data_ptr()),
     ctypes.c_void_p(V.data_ptr()),
     ctypes.c_void_p(O.data_ptr()),
     ctypes.c_void_p(L.data_ptr()),
-    B, H, N, D, scale, True
+    B, H, N, D, scale, True, None
 )
 
 assert result == 0, f"FlashAttention 失败，错误码 {result}"
@@ -275,7 +282,7 @@ cmake --build --preset release
 
 **默认构建目标**: sm_80, sm_86（A100 + RTX 30xx/40xx）
 
-自定义使用: `cmake -B build -DCMAKE_CUDA_ARCHITECTURES="90"`
+自定义使用: `cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="90"`
 
 ---
 
@@ -296,11 +303,9 @@ cuflash-attn/
 │   ├── flash_attention.h       # 主 API，包含 C++ 和 C ABI
 │   ├── export.h                # 可见性宏
 │   └── version.h.in            # 版本头文件模板
-├── specs/                      # 规范驱动开发文档
-│   ├── product/                # 产品需求
-│   ├── rfc/                    # 技术设计（RFCs）
-│   ├── api/                    # API 规范
-│   └── testing/                # 测试规范
+├── openspec/                   # OpenSpec 真相源
+│   ├── specs/                  # 已接受的设计与验证规范
+│   └── changes/                # 变更提案、设计与任务清单
 ├── src/                        # 实现代码
 │   ├── api/                    # API 调度层
 │   ├── forward/                # 前向传播内核实现

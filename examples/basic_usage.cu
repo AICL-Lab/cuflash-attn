@@ -29,6 +29,13 @@ int main() {
     // Calculate sizes
     const size_t qkv_size = batch_size * num_heads * seq_len * head_dim;
     const size_t l_size = batch_size * num_heads * seq_len;
+    auto check_cuda = [](cudaError_t err, const char* operation) {
+        if (err != cudaSuccess) {
+            std::cerr << operation << " failed: " << cudaGetErrorString(err) << std::endl;
+            return false;
+        }
+        return true;
+    };
 
     // Allocate host memory
     std::vector<float> h_Q(qkv_size);
@@ -47,17 +54,34 @@ int main() {
     }
 
     // Allocate device memory
-    float *d_Q, *d_K, *d_V, *d_O, *d_L;
-    cudaMalloc(&d_Q, qkv_size * sizeof(float));
-    cudaMalloc(&d_K, qkv_size * sizeof(float));
-    cudaMalloc(&d_V, qkv_size * sizeof(float));
-    cudaMalloc(&d_O, qkv_size * sizeof(float));
-    cudaMalloc(&d_L, l_size * sizeof(float));
+    float *d_Q = nullptr, *d_K = nullptr, *d_V = nullptr, *d_O = nullptr, *d_L = nullptr;
+    if (!check_cuda(cudaMalloc(&d_Q, qkv_size * sizeof(float)), "cudaMalloc(d_Q)") ||
+        !check_cuda(cudaMalloc(&d_K, qkv_size * sizeof(float)), "cudaMalloc(d_K)") ||
+        !check_cuda(cudaMalloc(&d_V, qkv_size * sizeof(float)), "cudaMalloc(d_V)") ||
+        !check_cuda(cudaMalloc(&d_O, qkv_size * sizeof(float)), "cudaMalloc(d_O)") ||
+        !check_cuda(cudaMalloc(&d_L, l_size * sizeof(float)), "cudaMalloc(d_L)")) {
+        cudaFree(d_Q);
+        cudaFree(d_K);
+        cudaFree(d_V);
+        cudaFree(d_O);
+        cudaFree(d_L);
+        return 1;
+    }
 
     // Copy to device
-    cudaMemcpy(d_Q, h_Q.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_K, h_K.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_V, h_V.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    if (!check_cuda(cudaMemcpy(d_Q, h_Q.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice),
+                    "cudaMemcpy(Q)") ||
+        !check_cuda(cudaMemcpy(d_K, h_K.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice),
+                    "cudaMemcpy(K)") ||
+        !check_cuda(cudaMemcpy(d_V, h_V.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice),
+                    "cudaMemcpy(V)")) {
+        cudaFree(d_Q);
+        cudaFree(d_K);
+        cudaFree(d_V);
+        cudaFree(d_O);
+        cudaFree(d_L);
+        return 1;
+    }
 
     // Run forward pass
     auto error = cuflash::flash_attention_forward(d_Q, d_K, d_V, d_O, d_L, batch_size, num_heads,
@@ -65,11 +89,24 @@ int main() {
 
     if (error != cuflash::FlashAttentionError::SUCCESS) {
         std::cerr << "Error: " << cuflash::get_error_string(error) << std::endl;
+        cudaFree(d_Q);
+        cudaFree(d_K);
+        cudaFree(d_V);
+        cudaFree(d_O);
+        cudaFree(d_L);
         return 1;
     }
 
     // Copy result back
-    cudaMemcpy(h_O.data(), d_O, qkv_size * sizeof(float), cudaMemcpyDeviceToHost);
+    if (!check_cuda(cudaMemcpy(h_O.data(), d_O, qkv_size * sizeof(float), cudaMemcpyDeviceToHost),
+                    "cudaMemcpy(O)")) {
+        cudaFree(d_Q);
+        cudaFree(d_K);
+        cudaFree(d_V);
+        cudaFree(d_O);
+        cudaFree(d_L);
+        return 1;
+    }
 
     std::cout << "Flash Attention forward pass completed successfully!" << std::endl;
     std::cout << "Output[0]: " << h_O[0] << std::endl;
@@ -85,10 +122,22 @@ int main() {
 
     if (error != cuflash::FlashAttentionError::SUCCESS) {
         std::cerr << "Error: " << cuflash::get_error_string(error) << std::endl;
+        cudaFree(d_Q);
+        cudaFree(d_K);
+        cudaFree(d_V);
+        cudaFree(d_O);
+        cudaFree(d_L);
         return 1;
     }
 
-    cudaDeviceSynchronize();
+    if (!check_cuda(cudaDeviceSynchronize(), "cudaDeviceSynchronize")) {
+        cudaFree(d_Q);
+        cudaFree(d_K);
+        cudaFree(d_V);
+        cudaFree(d_O);
+        cudaFree(d_L);
+        return 1;
+    }
     std::cout << "Causal attention completed successfully!" << std::endl;
 
     // Cleanup

@@ -4,8 +4,8 @@ title: Documentation
 
 hero:
   name: "CuFlash-Attn"
-  text: "High-Performance CUDA FlashAttention"
-  tagline: A from-scratch implementation with O(N) memory complexity, FP32/FP16 dual precision, and complete training support
+  text: "OpenSpec-Driven CUDA FlashAttention Reference"
+  tagline: Stable v0.3.0 baseline for integration, verification, and archive-ready handoff
   image:
     src: /hero-logo.svg
     alt: CuFlash-Attn
@@ -14,28 +14,28 @@ hero:
       text: Get Started
       link: /en/guide/quick-start
     - theme: alt
-      text: View on GitHub
-      link: https://github.com/LessUp/cuflash-attn
+      text: Project Status
+      link: /en/project-status
 
 features:
   - icon: ⚡
     title: O(N) Memory
-    details: Linear memory complexity instead of quadratic. Handle sequences up to 16K+ efficiently without OOM.
+    details: "FlashAttention tiling plus online softmax keeps activation memory linear in sequence length."
   - icon: 🔢
     title: FP32 & FP16
-    details: Full precision control with FP32 accumulation for FP16 operations. Numerically stable forward and backward.
+    details: "Forward and backward paths are implemented for both float and half with numerically aware accumulation."
   - icon: 🔁
-    title: Training Ready
-    details: Complete forward and backward passes with optimized gradient computation using recomputation strategy.
+    title: Stable Integration Surface
+    details: "C++ namespace API and C ABI examples are kept aligned with the shipped headers and docs."
   - icon: 🎭
-    title: Causal Masking
-    details: Built-in efficient causal attention support for autoregressive models like GPT and LLaMA.
+    title: Spec-Tracked Behavior
+    details: "Design and verification live in OpenSpec so behavior, tests, and docs share the same source of truth."
   - icon: 🚀
     title: Multi-Architecture
-    details: Optimized CUDA kernels for NVIDIA GPUs from V100 (sm_70) to H100 (sm_90).
+    details: "Documented support covers NVIDIA GPUs from V100 (sm_70) through H100 (sm_90)."
   - icon: 🔧
-    title: Easy Integration
-    details: Clean C++ API with C ABI for Python ctypes. Header-only option available for simple use cases.
+    title: Handoff Ready
+    details: "Lightweight CI, preset-only builds, and bilingual docs make final maintenance and model handoff predictable."
 ---
 
 <script setup>
@@ -110,6 +110,16 @@ auto err = cuflash::flash_attention_forward(
 
 :::
 
+## Project Status
+
+CuFlash-Attn is no longer positioned as a fast-moving feature playground. It is maintained as a **stable reference implementation** with a narrow scope:
+
+- fix correctness, packaging, workflow, and documentation drift
+- preserve a reliable `v0.3.0` integration surface
+- keep the repository easy to review, teach from, and hand off
+
+See [Project Status](/en/project-status) for the maintenance posture and workflow guardrails.
+
 ## Performance
 
 Memory efficiency comparison between Standard Attention and FlashAttention:
@@ -124,15 +134,16 @@ Memory efficiency comparison between Standard Attention and FlashAttention:
 
 | Resource | Description |
 |----------|-------------|
-| [Quick Start Guide](/en/guide/quick-start) | Get up and running in 5 minutes |
-| [Building from Source](/en/building) | Detailed build instructions with all options |
+| [Quick Start Guide](/en/guide/quick-start) | Preset-based path from clone to first build |
+| [Building from Source](/en/building) | Supported presets, overrides, and platform notes |
 | [API Reference](/en/api-reference) | Complete C++ and C ABI documentation |
-| [Algorithm Deep Dive](/en/algorithm) | Understanding FlashAttention internals |
-| [Troubleshooting](/en/troubleshooting) | Common issues and solutions |
+| [Algorithm Deep Dive](/en/algorithm) | FlashAttention tiling, online softmax, and recomputation |
+| [Troubleshooting](/en/troubleshooting) | Common build and runtime issues |
+| [Project Status](/en/project-status) | Scope, maintenance posture, and handoff rules |
 
 ## Specifications
 
-This project follows **OpenSpec** methodology. All implementation details are in `openspec/specs/`:
+This project follows **OpenSpec** methodology. Canonical requirements live in `openspec/specs/`:
 
 - [Design Specification](https://github.com/LessUp/cuflash-attn/blob/master/openspec/specs/design/flash-attention-design.md) — Requirements & algorithms
 - [Verification Specification](https://github.com/LessUp/cuflash-attn/blob/master/openspec/specs/verification/flash-attention-verification.md) — API & test specs

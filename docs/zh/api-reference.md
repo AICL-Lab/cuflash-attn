@@ -361,18 +361,19 @@ int main() {
 
 ```bash
 # 高性能发布版本构建
-cmake .. -DCMAKE_BUILD_TYPE=Release \
-         -DENABLE_FAST_MATH=ON \
-         -DBUILD_SHARED_LIBS=OFF
+cmake --preset release-fast-math \
+      -DBUILD_SHARED_LIBS=OFF
+cmake --build --preset release-fast-math
 
 # 带所有测试的调试版本
-cmake .. -DCMAKE_BUILD_TYPE=Debug \
-         -DENABLE_RAPIDCHECK=ON
+cmake --preset default \
+      -DENABLE_RAPIDCHECK=ON
+cmake --build --preset default
 
 # 仅静态库
-cmake .. -DBUILD_SHARED_LIBS=OFF \
-         -DBUILD_TESTS=OFF \
-         -DBUILD_EXAMPLES=OFF
+cmake --preset minimal \
+      -DBUILD_SHARED_LIBS=OFF
+cmake --build --preset minimal
 ```
 
 ---
@@ -395,10 +396,10 @@ cmake .. -DBUILD_SHARED_LIBS=OFF \
 
 ```bash
 # 仅支持 RTX 3090 / A100
-cmake .. -DCMAKE_CUDA_ARCHITECTURES=86
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=86
 
 # 支持多个架构
-cmake .. -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
 ```
 
 ### 共享内存需求

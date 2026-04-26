@@ -5,13 +5,14 @@ project:
   type: cmake-cuda-library
   description: High-performance CUDA C++ FlashAttention implementation from scratch
   version: 0.3.0
-  goal: 完善收尾，发布 v0.3.0（最终版本）
+  goal: 收敛项目规范、工程化与 AI 工具链，形成可归档的最终稳定状态
 
 context: |
   ## Project Context
 
-  CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库。项目处于收尾阶段，目标是
-  修复所有已知问题，完善文档，发布 v0.3.0。
+  CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库。v0.3.0 版本发布后，项目进入
+  最终治理阶段，目标是清理剩余漂移、统一规范与流程、精简工程化配置，并将仓库收敛为
+  可随时归档的稳定样板。
 
   ### Technology Stack
   - Language: C++17 / CUDA C++17
@@ -19,6 +20,7 @@ context: |
   - Testing: Google Test (unit), PyTorch comparison (integration)
   - Documentation: VitePress (bilingual EN/ZH)
   - CI/CD: GitHub Actions
+  - AI Tooling: Copilot CLI / Claude Code / Codex CLI / OpenSpec
 
   ### Key Constraints
   - CUDA Toolkit 12.x recommended (minimum 11.0)
@@ -27,6 +29,7 @@ context: |
   - Supported data types: FP32 (float) and FP16 (half)
   - Tensor layout: [batch_size, num_heads, seq_len, head_dim]
   - Stream safety: use cudaMemsetAsync not cudaMemset
+  - Execution style: stay on master, avoid long-lived branches and avoid /fleet for this repository
 
   ### Build Commands
   ```bash
@@ -67,6 +70,11 @@ rules:
       5. /opsx:apply 实现
       6. /verify 验证（格式+构建+测试）
       7. /opsx:archive 归档
+
+      在当前最终治理阶段：
+      - 行为或 API 变化必须先有 change
+      - 文档/工作流/AI 配置收敛应优先归入治理类 change
+      - 一次只推进一个聚焦 change，避免并行分支扩散
 
   git-branch-strategy:
     description: |
@@ -122,6 +130,15 @@ rules:
 
       代码实现后运行 /review 审查再提交。
       回复始终使用中文，代码注释和 API 文档保持英文。
+      避免 /fleet；优先使用长会话串行推进治理任务。
+
+  review-gate:
+    description: |
+      以下改动默认需要 /review：
+      - 跨文件重构
+      - API / ABI 相关变更
+      - CI/CD 与发布工作流改动
+      - AI 指令、控制文档与 OpenSpec 治理改动
 
 anti_patterns:
   - donot: 不读规范就写代码
@@ -142,6 +159,9 @@ anti_patterns:
   - donot: 创建长期功能分支
     do: 在 master 直接 commit
 
+  - donot: 并行堆积大量治理分支或 /fleet 任务
+    do: 保持单线、可审查、可归档的变更节奏
+
   - donot: 提交前不格式化
     do: 运行 clang-format
 
@@ -161,4 +181,3 @@ quick_reference:
   docs: |
     cd docs && npm ci && npm run docs:build
     # 发布到 https://lessup.github.io/cuflash-attn/
-

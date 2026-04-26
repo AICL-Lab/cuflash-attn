@@ -34,8 +34,9 @@ CMake Error: Could not find CUDA
 
 2. **Explicitly Set CUDA Paths:**
    ```bash
-   cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda \
-            -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+   cmake --preset release \
+         -DCUDAToolkit_ROOT=/usr/local/cuda \
+         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
    ```
 
 3. **Common Path Locations:**
@@ -71,7 +72,7 @@ nvcc fatal : Unsupported GPU architecture 'sm_89'
    nvcc --help | grep "gpu-architecture"
    
    # Build for supported architecture
-   cmake .. -DCMAKE_CUDA_ARCHITECTURES=80  # Adjust to your CUDA version
+   cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=80  # Adjust to your CUDA version
    ```
 
 3. **Compatibility Matrix:**
@@ -97,13 +98,13 @@ nvcc fatal : Memory allocation failure
 
 1. **Reduce Parallel Jobs:**
    ```bash
-   cmake --build . -j2  # Use only 2 parallel jobs
+   cmake --build --preset release -j2  # Use only 2 parallel jobs
    ```
 
 2. **Reduce Target Architectures:**
    ```bash
    # Build for single architecture
-   cmake .. -DCMAKE_CUDA_ARCHITECTURES=86
+   cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=86
    ```
 
 3. **Close Other Applications:** Free up system memory
@@ -266,7 +267,8 @@ cudaMalloc(&d_Q, batch_size * num_heads * seq_len * head_dim * sizeof(float));
 
 3. **Enable Fast Math (if precision allows):**
    ```bash
-   cmake .. -DENABLE_FAST_MATH=ON
+   cmake --preset release-fast-math
+   cmake --build --preset release-fast-math
    ```
 
 4. **Profile Kernel Execution:**

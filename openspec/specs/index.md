@@ -120,6 +120,37 @@ openspec/changes/<change-name>/
 
 ---
 
+## Repository Responsibility Map（仓库职责矩阵）
+
+为避免收尾阶段继续出现目录漂移和控制文档重叠，仓库各区域职责固定如下：
+
+| Path | Responsibility |
+|------|----------------|
+| `openspec/specs/**` | 产品需求、技术设计、验证规则的唯一真相源 |
+| `openspec/config.yaml` | OpenSpec 工作流规则、项目上下文、AI 协作约束 |
+| `openspec/changes/**` | 所有增量变更的 proposal / design / tasks |
+| `include/cuflash/**` | 对外公开 API、导出符号、稳定集成面 |
+| `src/api/**` | API 分发与参数校验 |
+| `src/forward/**` / `src/backward/**` | 计算实现（FP32 / FP16） |
+| `src/kernels/**` | 内部 kernel 工具与 shared helpers，不对外暴露 |
+| `tests/**` | 与 spec traceability 绑定的单元、集成、package smoke 验证 |
+| `docs/**` | GitHub Pages / VitePress 对外站点，不承载项目真相源 |
+| `README*.md` | 对外入口与高层介绍，不重复 OpenSpec 细节 |
+| `AGENTS.md` / `CLAUDE.md` / `.github/copilot-instructions.md` | 面向不同 AI 工具的项目级行为指令，禁止彼此复制整份内容 |
+
+### Project Control Documents（项目控制文档）
+
+| File | Primary Role | Must Not Become |
+|------|--------------|-----------------|
+| `openspec/specs/**` | 定义需求、设计、验证标准 | 营销文档、操作手册合集 |
+| `openspec/config.yaml` | 定义 OpenSpec 和项目规则 | 长篇重复 README |
+| `AGENTS.md` | 多代理/终端代理协作准则 | 与 Copilot 指令完全重复 |
+| `CLAUDE.md` | Claude / Opencode 项目行为约束 | 本地个人偏好转储 |
+| `.github/copilot-instructions.md` | Copilot 项目上下文与操作边界 | 通用模板拼贴 |
+| `CONTRIBUTING.md` | 人类贡献者的短流程说明 | 冗长架构百科 |
+
+---
+
 ## Requirements Traceability Matrix
 
 | Requirement | Design Section | Test Coverage |
@@ -139,4 +170,6 @@ openspec/changes/<change-name>/
 
 See `openspec/config.yaml` for project rules and context.
 
-See `AGENTS.md` for AI agent workflow instructions.
+See `AGENTS.md` for multi-agent workflow instructions.
+
+See `CLAUDE.md` and `.github/copilot-instructions.md` for tool-specific AI guidance.

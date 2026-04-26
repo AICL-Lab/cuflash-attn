@@ -6,16 +6,17 @@
 
 ## 项目本质
 
-CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库，使用 **OpenSpec** 规范驱动开发。当前目标：**完善收尾，发布 v0.3.0**。
+CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库，使用 **OpenSpec** 规范驱动开发。当前目标：**完成最终治理收敛，形成可归档的稳定样板**。
 
 | 属性 | 值 |
 |------|-----|
-| 版本 | 0.2.0（目标 0.3.0） |
+| 版本 | 0.3.0（稳定基线） |
 | GPU 要求 | Compute Capability 7.0+（V100→H100, sm_70-sm_90） |
 | 默认架构 | sm_80, sm_86（A100 + RTX 30/40 系列） |
 | head_dim | 只支持 **32、64、128**（kernel tile 硬编码） |
 | 数据类型 | FP32 + FP16，含前向和反向传播 |
 | 张量 layout | `[batch_size, num_heads, seq_len, head_dim]` |
+| 当前工作重点 | 文档/流程/AI 工具链收敛 + 长尾缺陷清理 |
 
 ---
 
@@ -34,6 +35,16 @@ CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库，使用 **OpenSpec*
 规范文档位置：
 - `openspec/specs/design/flash-attention-design.md` — 产品需求 + 技术设计
 - `openspec/specs/verification/flash-attention-verification.md` — API 规范 + 测试规范
+
+### 轻量收尾工作流
+
+项目当前处于最终治理阶段，推荐以下短链路：
+
+1. 先判断是 **行为变更** 还是 **治理收尾**
+2. 行为、API、测试语义变化：先建立或更新 OpenSpec change
+3. 文档、工作流、GitHub metadata、AI 指令收敛：优先归入治理类 change，而不是额外扩功能
+4. 单次只推进一个聚焦的 change，避免多条长期并行分支
+5. 重要改动落地前执行 `/review`
 
 ---
 
@@ -124,6 +135,7 @@ tests/package_smoke/ 安装验证
 - **始终在 master 工作**，禁止创建长期未合并的功能分支
 - 使用 `git tag v0.x.x` 标记版本，通过 tag push 触发 release workflow
 - 每次 push 自动触发 CI（format check + build + test skip on no GPU）
+- 避免 `/fleet` 和云端/本地大量未合并分支，优先使用长会话串行推进
 
 ---
 
@@ -136,6 +148,11 @@ tests/package_smoke/ 安装验证
 | **Codex CLI** | 批处理任务、自动化 PR 处理 |
 
 **Review 流程**: 实现后运行 `/review` 进行代码审查再提交。
+
+**收尾原则**:
+- 优先修正规范漂移、文档错误、CI 复杂度、示例失真
+- 不做与最终稳定态无关的功能扩张
+- 如果变更跨越规范、代码、文档三个面，必须把它们一起收口
 
 ---
 
@@ -151,4 +168,3 @@ tests/package_smoke/ 安装验证
 | 创建长期功能分支 | 直接在 master 上 commit |
 | 提交前不格式化 | 运行 clang-format |
 | 修改 head_dim 支持范围不更新 kernel tiling | 同步更新 kernel 和规范 |
-

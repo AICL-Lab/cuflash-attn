@@ -361,17 +361,18 @@ int main() {
 
 ```bash
 # High-performance release build
-cmake .. -DCMAKE_BUILD_TYPE=Release \
-         -DENABLE_FAST_MATH=ON
+cmake --preset release-fast-math
+cmake --build --preset release-fast-math
 
 # Debug build with all tests
-cmake .. -DCMAKE_BUILD_TYPE=Debug \
-         -DENABLE_RAPIDCHECK=ON
+cmake --preset default \
+      -DENABLE_RAPIDCHECK=ON
+cmake --build --preset default
 
 # Static library only
-cmake .. -DBUILD_SHARED_LIBS=OFF \
-         -DBUILD_TESTS=OFF \
-         -DBUILD_EXAMPLES=OFF
+cmake --preset minimal \
+      -DBUILD_SHARED_LIBS=OFF
+cmake --build --preset minimal
 ```
 
 ---
@@ -394,10 +395,10 @@ Default builds support all architectures. For specific deployment:
 
 ```bash
 # Target only RTX 3090 / A100
-cmake .. -DCMAKE_CUDA_ARCHITECTURES=86
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=86
 
 # Target multiple architectures
-cmake .. -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
 ```
 
 ### Shared Memory Requirements

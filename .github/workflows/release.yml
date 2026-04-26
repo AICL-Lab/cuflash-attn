@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., v0.2.0)'
+        description: 'Release version (e.g., v0.3.0)'
         required: true
         type: string
 
@@ -47,11 +47,21 @@ jobs:
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cccl"]'
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
       - name: Configure CMake
         run: cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80"
 
       - name: Build library
         run: cmake --build --preset release -j$(nproc)
+
+      - name: Install Python test dependencies
+        run: python3 -m pip install -r tests/integration/requirements.txt
 
       - name: Run tests
         run: ctest --preset release --output-on-failure
@@ -112,7 +122,6 @@ jobs:
             ```
           files: |
             build/release/libcuflash_attn.so
-            build/release/libcuflash_attn.a
           draft: false
           prerelease: false
           generate_release_notes: true

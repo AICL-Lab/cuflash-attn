@@ -16,6 +16,13 @@
 
 CuFlash-Attn is a **from-scratch implementation** of the FlashAttention algorithm, optimized for **educational purposes**, **research experimentation**, and **production integration**.
 
+### Project Status
+
+- **Status**: Stable `v0.3.0` codebase under final-governance cleanup
+- **Source of Truth**: [`openspec/specs/`](openspec/specs/)
+- **Positioning**: Archive-ready reference implementation that remains useful for learning, auditing, and lightweight integration
+- **Current Focus**: Tightening docs, workflows, AI instructions, and long-tail defects rather than adding new features
+
 ### Why CuFlash-Attn?
 
 | Challenge | Solution |
@@ -162,16 +169,16 @@ import numpy as np
 import torch
 
 # Load the shared library
-lib = ctypes.CDLL("./build/release/libcuflashattn.so")
+lib = ctypes.CDLL("./build/release/libcuflash_attn.so")
 
 # Define API
-lib.flash_attention_forward.argtypes = [
+lib.cuflash_attention_forward_f32.argtypes = [
     ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
     ctypes.c_void_p, ctypes.c_void_p,
     ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-    ctypes.c_float, ctypes.c_bool
+    ctypes.c_float, ctypes.c_bool, ctypes.c_void_p
 ]
-lib.flash_attention_forward.restype = ctypes.c_int
+lib.cuflash_attention_forward_f32.restype = ctypes.c_int
 
 # Prepare data with PyTorch
 B, H, N, D = 2, 8, 1024, 64
@@ -183,13 +190,13 @@ L = torch.empty(B, H, N, dtype=torch.float32, device='cuda')
 
 # Call CuFlash-Attn
 scale = 1.0 / np.sqrt(D)
-result = lib.flash_attention_forward(
+result = lib.cuflash_attention_forward_f32(
     ctypes.c_void_p(Q.data_ptr()),
     ctypes.c_void_p(K.data_ptr()),
     ctypes.c_void_p(V.data_ptr()),
     ctypes.c_void_p(O.data_ptr()),
     ctypes.c_void_p(L.data_ptr()),
-    B, H, N, D, scale, True
+    B, H, N, D, scale, True, None
 )
 
 assert result == 0, f"FlashAttention failed with error code {result}"
@@ -275,7 +282,7 @@ cmake --build --preset release
 
 **Default build targets**: sm_80, sm_86 (A100 + RTX 30xx/40xx)
 
-Customize with: `cmake -B build -DCMAKE_CUDA_ARCHITECTURES="90"`
+Customize with: `cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="90"`
 
 ---
 
@@ -296,11 +303,9 @@ cuflash-attn/
 │   ├── flash_attention.h       # Main API with C++ and C ABI
 │   ├── export.h                # Visibility macros
 │   └── version.h.in            # Version header template
-├── specs/                      # Spec-Driven Development documents
-│   ├── product/                # Product requirements
-│   ├── rfc/                    # Technical design (RFCs)
-│   ├── api/                    # API specifications
-│   └── testing/                # Testing specifications
+├── openspec/                   # OpenSpec source of truth
+│   ├── specs/                  # Accepted design + verification specs
+│   └── changes/                # Change proposals, designs, task lists
 ├── src/                        # Implementation
 │   ├── api/                    # API dispatch layer
 │   ├── forward/                # Forward kernel implementations

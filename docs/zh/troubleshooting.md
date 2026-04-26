@@ -34,8 +34,9 @@ CMake Error: Could not find CUDA
 
 2. **显式设置 CUDA 路径：**
    ```bash
-   cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda \
-            -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+   cmake --preset release \
+         -DCUDAToolkit_ROOT=/usr/local/cuda \
+         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
    ```
 
 3. **常见路径位置：**
@@ -71,7 +72,7 @@ nvcc fatal : Unsupported GPU architecture 'sm_89'
    nvcc --help | grep "gpu-architecture"
    
    # 为支持的架构构建
-   cmake .. -DCMAKE_CUDA_ARCHITECTURES=80  # 根据您的 CUDA 版本调整
+   cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=80  # 根据您的 CUDA 版本调整
    ```
 
 3. **兼容性矩阵：**
@@ -97,13 +98,13 @@ nvcc fatal : Memory allocation failure
 
 1. **减少并行任务：**
    ```bash
-   cmake --build . -j2  # 仅使用 2 个并行任务
+   cmake --build --preset release -j2  # 仅使用 2 个并行任务
    ```
 
 2. **减少目标架构：**
    ```bash
    # 单架构构建
-   cmake .. -DCMAKE_CUDA_ARCHITECTURES=86
+   cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=86
    ```
 
 3. **关闭其他应用程序：** 释放系统内存
@@ -266,7 +267,8 @@ cudaMalloc(&d_Q, batch_size * num_heads * seq_len * head_dim * sizeof(float));
 
 3. **启用快速数学（如果精度允许）：**
    ```bash
-   cmake .. -DENABLE_FAST_MATH=ON
+   cmake --preset release-fast-math
+   cmake --build --preset release-fast-math
    ```
 
 4. **分析内核执行：**

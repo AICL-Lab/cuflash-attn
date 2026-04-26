@@ -4,8 +4,8 @@ title: 文档
 
 hero:
   name: "CuFlash-Attn"
-  text: "高性能 CUDA FlashAttention"
-  tagline: 从零实现的 FlashAttention 算法，具备 O(N) 内存复杂度、FP32/FP16 双精度支持，以及完整的训练功能
+  text: "OpenSpec 驱动的 CUDA FlashAttention 参考实现"
+  tagline: 稳定的 v0.3.0 基线，面向集成、验证与可归档交接
   image:
     src: /hero-logo.svg
     alt: CuFlash-Attn
@@ -14,28 +14,28 @@ hero:
       text: 开始使用
       link: /zh/guide/quick-start
     - theme: alt
-      text: 查看 GitHub
-      link: https://github.com/LessUp/cuflash-attn
+      text: 项目状态
+      link: /zh/project-status
 
 features:
   - icon: ⚡
     title: O(N) 内存
-    details: 线性内存复杂度，告别二次增长。轻松处理 16K+ 长度序列，不再担心显存溢出。
+    details: "FlashAttention 分块与 online softmax 让激活内存随序列长度线性增长。"
   - icon: 🔢
     title: FP32 & FP16
-    details: 完整的精度控制，FP16 计算配合 FP32 累加。数值稳定的前向和反向传播。
+    details: "`float` 与 `half` 的前向、反向路径齐备，并兼顾数值稳定性。"
   - icon: 🔁
-    title: 训练就绪
-    details: 完整的前向和反向传播，采用重计算策略优化梯度计算。
+    title: 稳定集成面
+    details: "C++ 命名空间 API、C ABI 与示例代码保持同步，方便直接接入上层工程。"
   - icon: 🎭
-    title: 因果掩码
-    details: 内置高效的因果注意力支持，适用于 GPT、LLaMA 等自回归模型。
+    title: 规范可追踪
+    details: "设计与验证规则收敛到 OpenSpec，代码、测试与文档围绕同一事实源演进。"
   - icon: 🚀
     title: 多架构
-    details: 针对 NVIDIA GPU 优化的 CUDA 内核，支持从 V100 (sm_70) 到 H100 (sm_90)。
+    details: "文档化支持范围覆盖 V100 (sm_70) 到 H100 (sm_90) 的 NVIDIA GPU。"
   - icon: 🔧
-    title: 易于集成
-    details: 简洁的 C++ API 和 C ABI 接口，支持 Python ctypes。提供头文件-only 选项。
+    title: 易于交接
+    details: "轻量 CI、preset-only 构建和双语文档让后续维护与模型接手更可控。"
 ---
 
 <script setup>
@@ -110,6 +110,16 @@ auto err = cuflash::flash_attention_forward(
 
 :::
 
+## 项目状态
+
+CuFlash-Attn 不再被视为快速扩张功能面的实验仓库，而是一个**稳定的参考实现**。当前治理目标很明确：
+
+- 修复正确性、打包、工作流和文档漂移
+- 保持可靠的 `v0.3.0` 集成基线
+- 让仓库更容易被 review、教学使用和后续接手
+
+维护姿态与流程边界见 [项目状态](/zh/project-status)。
+
 ## 性能
 
 标准注意力机制与 FlashAttention 的内存效率对比：
@@ -124,15 +134,16 @@ auto err = cuflash::flash_attention_forward(
 
 | 资源 | 描述 |
 |------|------|
-| [快速开始指南](/zh/guide/quick-start) | 5 分钟上手指南 |
-| [从源码构建](/zh/building) | 详细的构建说明和选项 |
-| [API 参考](/zh/api-reference) | 完整的 C++ 和 C ABI 接口文档 |
-| [算法详解](/zh/algorithm) | 深入理解 FlashAttention 内部原理 |
-| [故障排除](/zh/troubleshooting) | 常见问题与解决方案 |
+| [快速开始指南](/zh/guide/quick-start) | 从克隆到首次构建的 preset 路径 |
+| [从源码构建](/zh/building) | 支持的 preset、覆盖参数与平台说明 |
+| [API 参考](/zh/api-reference) | 完整的 C++ 与 C ABI 接口文档 |
+| [算法详解](/zh/algorithm) | FlashAttention 分块、online softmax 与重计算策略 |
+| [故障排除](/zh/troubleshooting) | 常见构建与运行问题 |
+| [项目状态](/zh/project-status) | 范围、维护姿态与交接规则 |
 
 ## 规范文档
 
-本项目遵循 **OpenSpec** 规范驱动开发方法。所有实现细节都记录在 `openspec/specs/` 目录下：
+本项目遵循 **OpenSpec** 规范驱动开发方法。权威需求定义集中在 `openspec/specs/`：
 
 - [设计规范](https://github.com/LessUp/cuflash-attn/blob/master/openspec/specs/design/flash-attention-design.md) — 需求与算法设计
 - [验证规范](https://github.com/LessUp/cuflash-attn/blob/master/openspec/specs/verification/flash-attention-verification.md) — API 定义与测试规范

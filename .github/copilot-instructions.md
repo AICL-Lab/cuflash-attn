@@ -7,12 +7,13 @@
 
 ## 项目概述
 
-CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库，当前版本 **v0.2.0**，目标是尽快完善收尾发布 v0.3.0。
+CuFlash-Attn 是从零实现的 CUDA C++ FlashAttention 库，当前基线已稳定在 **v0.3.0**，当前工作重点是最终治理、规范收敛和可归档稳定性。
 
 - **核心算法**: FlashAttention tiling + online softmax，O(N) 内存复杂度
 - **技术栈**: CUDA C++17 / CMake 3.18+ / Google Test / VitePress
 - **API 设计**: 双 API（C++ namespace + C ABI for Python ctypes）
 - **支持类型**: FP32 (`float`) + FP16 (`half`)，前向和反向传播
+- **当前目标**: 收紧文档、工作流、AI 指令和长尾缺陷，保持仓库对外可展示、对内可归档
 
 ---
 

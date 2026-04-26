@@ -31,12 +31,12 @@ cmake --build --preset release
 ctest --preset release --output-on-failure
 ```
 
-### Manual Build
+### Custom Preset Overrides
 
 ```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j$(nproc)
+# Release build with a custom architecture target
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=86
+cmake --build --preset release -j$(nproc)
 ```
 
 ## Your First Program

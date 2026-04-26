@@ -6,7 +6,7 @@ without requiring PyTorch as a dependency.
 
 Requirements:
     - CUDA-capable GPU
-    - Built libcuflashattn.so library
+    - Built libcuflash_attn.so library
     - numpy
     - cupy (optional, for GPU array management)
 
@@ -15,8 +15,8 @@ Usage:
 """
 
 import ctypes
-import os
 import sys
+from ctypes import util
 from pathlib import Path
 
 import numpy as np
@@ -26,10 +26,10 @@ def find_library():
     """Find the CuFlash-Attn shared library."""
     # Try common locations
     possible_paths = [
-        Path(__file__).parent.parent / "build" / "release" / "libcuflashattn.so",
-        Path(__file__).parent.parent / "build" / "debug" / "libcuflashattn.so",
-        Path("/usr/local/lib/libcuflashattn.so"),
-        Path("/usr/lib/libcuflashattn.so"),
+        Path(__file__).parent.parent / "build" / "release" / "libcuflash_attn.so",
+        Path(__file__).parent.parent / "build" / "debug" / "libcuflash_attn.so",
+        Path("/usr/local/lib/libcuflash_attn.so"),
+        Path("/usr/lib/libcuflash_attn.so"),
     ]
     
     for path in possible_paths:
@@ -38,12 +38,12 @@ def find_library():
     
     # Try system library path
     try:
-        return ctypes.util.find_library("cuflashattn")
+        return util.find_library("cuflash_attn")
     except Exception:
         pass
     
     raise RuntimeError(
-        "Could not find libcuflashattn.so. "
+        "Could not find libcuflash_attn.so. "
         "Please build the project first: cmake --preset release && cmake --build --preset release"
     )
 

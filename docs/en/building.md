@@ -93,14 +93,13 @@ cmake --build --preset minimal
 
 ---
 
-## Manual Build
+## Custom Preset Overrides
 
-For custom configurations:
+For custom configurations, keep using presets and override cache variables explicitly:
 
 ```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . -j$(nproc)
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=86
+cmake --build --preset release -j$(nproc)
 ```
 
 ### Specifying CUDA Path
@@ -109,14 +108,16 @@ If CMake cannot find CUDA, specify the path explicitly:
 
 **Linux/macOS:**
 ```bash
-cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda \
-         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+cmake --preset release \
+      -DCUDAToolkit_ROOT=/usr/local/cuda \
+      -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 ```
 
 **Windows (PowerShell):**
 ```powershell
-cmake .. -DCUDAToolkit_ROOT="$env:CUDA_PATH" `
-         -DCMAKE_CUDA_COMPILER="$env:CUDA_PATH\bin\nvcc.exe"
+cmake --preset release `
+      -DCUDAToolkit_ROOT="$env:CUDA_PATH" `
+      -DCMAKE_CUDA_COMPILER="$env:CUDA_PATH\bin\nvcc.exe"
 ```
 
 ### Cross-Platform Library Extensions
@@ -144,7 +145,8 @@ cmake .. -DCUDAToolkit_ROOT="$env:CUDA_PATH" `
 Enables aggressive mathematical optimizations that trade precision for speed:
 
 ```bash
-cmake .. -DENABLE_FAST_MATH=ON
+cmake --preset release-fast-math
+cmake --build --preset release-fast-math
 ```
 
 **Effects:**
@@ -156,18 +158,19 @@ cmake .. -DENABLE_FAST_MATH=ON
 
 ```bash
 # High-performance release build
-cmake .. -DCMAKE_BUILD_TYPE=Release \
-         -DENABLE_FAST_MATH=ON \
-         -DBUILD_SHARED_LIBS=OFF
+cmake --preset release-fast-math \
+      -DBUILD_SHARED_LIBS=OFF
+cmake --build --preset release-fast-math
 
 # Debug build with all tests
-cmake .. -DCMAKE_BUILD_TYPE=Debug \
-         -DENABLE_RAPIDCHECK=ON
+cmake --preset default \
+      -DENABLE_RAPIDCHECK=ON
+cmake --build --preset default
 
 # Static library only
-cmake .. -DBUILD_SHARED_LIBS=OFF \
-         -DBUILD_TESTS=OFF \
-         -DBUILD_EXAMPLES=OFF
+cmake --preset minimal \
+      -DBUILD_SHARED_LIBS=OFF
+cmake --build --preset minimal
 ```
 
 ---
@@ -243,13 +246,13 @@ CUFLASH_LIB=/path/to/libcuflash_attn.so python tests/test_pytorch_comparison.py
 
 ```bash
 # Single architecture (faster compilation)
-cmake .. -DCMAKE_CUDA_ARCHITECTURES=86  # RTX 3090/A100
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES=86  # RTX 3090/A100
 
 # Multiple architectures
-cmake .. -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
 
 # Architecture ranges
-cmake .. -DCMAKE_CUDA_ARCHITECTURES="80-virtual"  # Virtual architecture
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80-virtual"  # Virtual architecture
 ```
 
 ### Architecture Selection Guide
@@ -284,9 +287,8 @@ Standard workflow works out of the box:
 
 ```bash
 sudo apt-get install cmake g++  # Ubuntu/Debian
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
+cmake --preset release
+cmake --build --preset release -j$(nproc)
 ```
 
 ### macOS
@@ -298,19 +300,15 @@ CUDA support on macOS is limited to older versions. NVIDIA no longer provides ma
 **Using Visual Studio 2019/2022:**
 
 ```cmd
-mkdir build
-cd build
-cmake .. -G "Visual Studio 17 2022" -A x64
-cmake --build . --config Release
+cmake --preset release
+cmake --build --preset release
 ```
 
 **Using Ninja (faster):**
 
 ```cmd
-mkdir build
-cd build
-cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build .
+cmake --preset release
+cmake --build --preset release
 ```
 
 **Common Windows Issues:**
@@ -345,8 +343,9 @@ docker run --gpus all cuflash-attn ./build/release/tests/cuflash_attn_tests
 
 ```bash
 # Explicitly set CUDA paths
-cmake .. -DCUDAToolkit_ROOT=/usr/local/cuda \
-         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
+cmake --preset release \
+      -DCUDAToolkit_ROOT=/usr/local/cuda \
+      -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 ```
 
 ### Compilation Errors with Unknown Architecture
@@ -355,7 +354,7 @@ Error: `Unknown CUDA architecture sm_XX`
 
 **Solution:** Update CUDA toolkit or specify supported architecture:
 ```bash
-cmake .. -DCMAKE_CUDA_ARCHITECTURES="70;75;80"
+cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="70;75;80"
 ```
 
 ### Link Errors for Shared Library
@@ -369,7 +368,7 @@ export LD_LIBRARY_PATH=$PWD/build/release:$LD_LIBRARY_PATH
 
 Reduce parallel jobs:
 ```bash
-cmake --build . -j2  # Use 2 parallel jobs instead of all cores
+cmake --build --preset release -j2  # Use only 2 parallel jobs
 ```
 
 ### Test Failures on GPU-less Systems
