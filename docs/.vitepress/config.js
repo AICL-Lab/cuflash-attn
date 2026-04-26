@@ -37,6 +37,7 @@ const enNav = [
   { text: 'Algorithm', link: '/en/algorithm', activeMatch: '/en/algorithm' },
   {
     text: 'v0.3.0',
+    items: [
       { text: 'Releases', link: 'https://github.com/LessUp/cuflash-attn/releases' },
       { text: 'Specs', link: 'https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs' }
     ]
