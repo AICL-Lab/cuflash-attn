@@ -132,6 +132,18 @@ rules:
       回复始终使用中文，代码注释和 API 文档保持英文。
       避免 /fleet；优先使用长会话串行推进治理任务。
 
+  tooling-boundaries:
+    description: |
+      本地工具链边界：
+      - 编辑器 / LSP 默认使用 clangd + CMake Tools
+      - 先运行 cmake --preset release 生成 build/release/compile_commands.json
+      - 无 nvcc 或无 GPU 时，允许继续推进 docs / specs / workflow / AI 指令，但 .cu 的
+        语义诊断和 configure/build 会退化
+      - CLI Skills 适合 plan / review / verify / handoff 这类低上下文流程
+      - MCP 或 gh 只在需要远端 GitHub 状态、Actions、metadata 时按需调用
+      - 默认不引入项目级 Copilot Plugin；除非现有 instructions + skills + gh/MCP 仍无法
+        覆盖高频问题
+
   review-gate:
     description: |
       以下改动默认需要 /review：
@@ -174,9 +186,10 @@ quick_reference:
       ! -path "*/build/*" | xargs clang-format -i
 
   lsp_setup: |
-    # 生成 compile_commands.json（clangd LSP 需要）
+    # 首选：生成 compile_commands.json（clangd LSP 需要）
     cmake --preset release
     # 之后 clangd 自动读取 build/release/compile_commands.json
+    # 无 nvcc 时仍可依赖 .clangd fallback flags 做有限导航，但 .cu 诊断会退化
 
   docs: |
     cd docs && npm ci && npm run docs:build

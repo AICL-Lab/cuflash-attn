@@ -154,6 +154,17 @@ tests/package_smoke/ 安装验证
 - 不做与最终稳定态无关的功能扩张
 - 如果变更跨越规范、代码、文档三个面，必须把它们一起收口
 
+### AI / LSP 工具边界
+
+- 本地编辑默认使用 `clangd` + CMake Tools，依赖 `cmake --preset release` 生成
+  `build/release/compile_commands.json`
+- 没有 `nvcc` 的机器允许继续推进 docs / specs / workflow / AI 指令收尾，但 `.cu`
+  语义诊断和 configure/build 会退化
+- CLI Skills 优先用于 plan / review / verify / handoff 这类低上下文流程
+- MCP / `gh` 只在需要远端 GitHub 状态、Actions、metadata 时按需使用
+- 默认不配置项目级 Copilot Plugin；若未来引入，必须证明现有 instructions + skills +
+  `gh` / MCP 无法覆盖高频痛点
+
 ---
 
 ## 禁止模式（Anti-patterns）

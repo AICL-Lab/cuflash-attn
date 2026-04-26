@@ -41,6 +41,17 @@ cmake --build --preset release
 ctest --preset release --output-on-failure
 ```
 
+## Editor / LSP Baseline
+
+- Preferred local stack: `clangd` + CMake Tools (or any editor that consumes `.clangd`)
+- Generate `build/release/compile_commands.json` with `cmake --preset release`
+- Machines without `nvcc` can still edit docs, specs, workflow files, and most headers; `.clangd`
+  fallback flags provide partial completion/navigation, but full `.cu` diagnostics and configure/build
+  steps require a CUDA-capable toolchain
+- Keep editor tooling minimal. Do not add project-local MCP daemons or Copilot plugins unless a
+  recurring repository-wide problem cannot be solved by OpenSpec docs, CLI skills, `gh`, or the
+  existing workspace settings
+
 ## Code Style
 
 - **Format**: Google style via clang-format (`.clang-format`)
