@@ -126,7 +126,7 @@ void reference_attention_backward(const std::vector<float>& Q, const std::vector
     }
 }
 
-float max_abs_diff(const std::vector<float>& a, const std::vector<float>& b) {
+static float max_abs_diff(const std::vector<float>& a, const std::vector<float>& b) {
     float max_diff = 0.0f;
     for (size_t i = 0; i < a.size(); i++) {
         max_diff = std::max(max_diff, std::abs(a[i] - b[i]));
