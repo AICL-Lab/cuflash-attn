@@ -4,6 +4,7 @@ project(cuflash_attn VERSION 0.3.0 LANGUAGES CXX CUDA)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(CTest)
+include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
