@@ -107,6 +107,17 @@ ctest --preset release --output-on-failure
 | **Claude Code** | 复杂重构、多文件规范更新、OpenSpec 提案设计 |
 | **Codex CLI** | 批处理任务、自动化工作流触发 |
 
+### AI / LSP 工具边界
+
+- **本地编辑默认**：`clangd` + CMake presets；先运行 `cmake --preset release` 生成
+  `build/release/compile_commands.json`
+- **无 `nvcc` 时的边界**：允许继续推进 docs / specs / workflow / AI 指令收尾，但不要把
+  `.cu` 语义诊断退化误判成仓库逻辑错误
+- **CLI Skills 优先**：适合 plan / review / verify / handoff 这类低上下文流程固化
+- **MCP / `gh` 按需使用**：只在需要 GitHub 远端状态、Actions、metadata、PR/issue 数据时使用
+- **Copilot Plugin 默认不引入**：只有当现有 instructions + CLI skills + `gh`/MCP 仍无法覆盖
+  高频痛点时，才考虑项目级插件
+
 ## 不要做（Anti-patterns）
 
 | ❌ | ✅ |

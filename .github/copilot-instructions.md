@@ -86,6 +86,18 @@ TEST(ForwardTest, NumericalEquivalence) { ... }
 
 ---
 
+## AI 工具边界
+
+- 本地开发默认使用 `clangd` + CMake presets；先运行 `cmake --preset release` 生成
+  `build/release/compile_commands.json`
+- 无 `nvcc` 时允许继续处理 docs / specs / workflow / AI config，但 `.cu` 语义诊断会退化
+- 优先使用轻量 CLI skills 固化 plan / review / verify / handoff
+- 仅在需要 GitHub 远端状态时使用 MCP 或 `gh`
+- 默认不引入项目级 Copilot Plugin；如果现有 instructions + skills + `gh` / MCP 已覆盖，
+  就不要再叠加插件
+
+---
+
 ## 不要做（Anti-patterns）
 
 | ❌ 禁止 | ✅ 应该 |

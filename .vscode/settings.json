@@ -1,5 +1,8 @@
 {
+  // Keep workspace MCP off by default. Reach for explicit MCP / gh calls only when
+  // interacting with remote GitHub state.
   "kiroAgent.configureMCP": "Disabled",
+  "C_Cpp.intelliSenseEngine": "disabled",
 
   // C++/CUDA language server (clangd)
   "clangd.arguments": [
@@ -26,8 +29,13 @@
     "*.cu": "cuda-cpp",
     "*.cuh": "cuda-cpp"
   },
-  "cmake.buildDirectory": "${workspaceFolder}/build/release",
-  "cmake.configureArgs": ["-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"],
+  // Use presets and avoid auto-configure on open because many contributor machines
+  // intentionally do not have nvcc available.
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": false,
+  "cmake.configureArgs": [
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+  ],
 
   // Editor
   "editor.rulers": [100],
