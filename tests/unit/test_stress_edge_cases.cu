@@ -122,12 +122,10 @@ TEST(EdgeCaseTest, MinimumHeadDim) {
 // ============================================================================
 
 TEST(EdgeCaseTest, NullPointerInput) {
-    auto err = cuflash::flash_attention_forward(static_cast<const float*>(nullptr),
-                                                static_cast<const float*>(nullptr),
-                                                static_cast<const float*>(nullptr),
-                                                static_cast<float*>(nullptr),
-                                                static_cast<float*>(nullptr), 1, 1, 64, 64, 0.125f,
-                                                false, 0);
+    auto err = cuflash::flash_attention_forward(
+        static_cast<const float*>(nullptr), static_cast<const float*>(nullptr),
+        static_cast<const float*>(nullptr), static_cast<float*>(nullptr),
+        static_cast<float*>(nullptr), 1, 1, 64, 64, 0.125f, false, 0);
     EXPECT_EQ(err, cuflash::FlashAttentionError::NULL_POINTER);
 }
 
