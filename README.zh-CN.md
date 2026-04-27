@@ -364,7 +364,7 @@ ctest --preset debug-asan
 
 ### 开始贡献
 
-1. **首先阅读规范** 📖 — 所有需求都在 [/specs/](specs/) 中
+1. **首先阅读规范** 📖 — 所有需求都在 [openspec/specs/](openspec/specs/) 中
 2. **Fork 并克隆** 仓库
 3. **创建分支** 用于你的功能或修复
 4. **编写测试** 验证你的更改

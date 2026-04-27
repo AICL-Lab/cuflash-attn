@@ -364,7 +364,7 @@ Contributions are welcome! This project follows **Spec-Driven Development (SDD)*
 
 ### Getting Started
 
-1. **Read the specs first** 📖 — All requirements are in [/specs/](specs/)
+1. **Read the specs first** 📖 — All requirements are in [openspec/specs/](openspec/specs/)
 2. **Fork & clone** the repository
 3. **Create a branch** for your feature or fix
 4. **Write tests** that validate your changes
