@@ -413,6 +413,20 @@ template __global__ void flash_attention_backward_dkdv_kernel_fp16<16, 32, 128>(
 
 namespace {
 
+// Static workspace for FP16 backward pass intermediate buffer (D array).
+//
+// Design rationale:
+// - Uses static local variable for simplicity and memory reuse across calls
+// - DeviceFloatWorkspace::reserve() only reallocates when more capacity is needed
+// - Suitable for single-threaded CUDA context usage (the common case)
+//
+// Limitations:
+// - NOT thread-safe for concurrent backward calls from multiple host threads
+// - For multi-stream concurrent usage, callers should ensure proper synchronization
+//   or consider allocating separate workspaces per stream
+//
+// This design is acceptable for a reference implementation targeting educational
+// and single-stream production use cases.
 DeviceFloatWorkspace& backward_workspace_fp16() {
     static DeviceFloatWorkspace workspace;
     return workspace;
