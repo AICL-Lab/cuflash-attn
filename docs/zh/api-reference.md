@@ -416,9 +416,41 @@ cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
 
 ## 线程安全
 
-- 使用不同流调用时，所有函数都是**线程安全的**
-- 支持多个并发调用（使用不同流）
-- 当流共享资源时，同步由调用者负责
+### 前向传播
+- 使用不同流并发调用时完全线程安全
+- 无共享可变状态
+
+### 反向传播
+- 使用内部静态工作空间进行中间缓冲区分配
+- 对于单线程 CUDA context 使用（常见情况）是**线程安全的**
+- 对于多主机线程并发调用反向传播**非线程安全**
+
+#### 多流并发使用
+
+对于多流并发执行反向传播，有两种选择：
+
+1. **每线程顺序执行**（推荐）：
+   ```cpp
+   // 安全：每个线程在自己的流上顺序调用
+   cudaStream_t stream1, stream2;
+   cudaStreamCreate(&stream1);
+   cudaStreamCreate(&stream2);
+   
+   // 线程 1：在 stream1 上顺序调用
+   flash_attention_backward(..., stream1);
+   flash_attention_backward(..., stream1);  // 安全
+   
+   // 线程 2：需要与线程 1 同步
+   ```
+
+2. **线程间同步**：
+   - 在另一个线程调用反向传播前使用 `cudaStreamSynchronize()`
+   - 或对反向传播调用使用外部互斥锁
+
+::: warning 参考实现说明
+此设计适用于教育和单流生产场景。
+对于多线程训练流水线，建议外部管理工作空间。
+:::
 
 ## 内存管理
 

@@ -415,9 +415,41 @@ Note: head_dim=128 requires GPUs with extended shared memory support.
 
 ## Thread Safety
 
-- All functions are **thread-safe** when called with different streams
-- Multiple concurrent calls with different streams are supported
-- Synchronization is caller's responsibility when streams share resources
+### Forward Pass
+- Fully thread-safe for concurrent calls with different streams
+- No shared mutable state
+
+### Backward Pass
+- Uses an internal static workspace for intermediate buffer allocation
+- **Thread-safe** for single-threaded CUDA context usage (the common case)
+- **Not thread-safe** for concurrent backward calls from multiple host threads
+
+#### Multi-Stream Concurrent Usage
+
+For multi-stream concurrent backward pass execution, you have two options:
+
+1. **Sequential execution per thread** (recommended):
+   ```cpp
+   // Safe: each thread uses its own stream sequentially
+   cudaStream_t stream1, stream2;
+   cudaStreamCreate(&stream1);
+   cudaStreamCreate(&stream2);
+   
+   // Thread 1: sequential calls on stream1
+   flash_attention_backward(..., stream1);
+   flash_attention_backward(..., stream1);  // Safe
+   
+   // Thread 2: would need synchronization with Thread 1
+   ```
+
+2. **Synchronize between threads**:
+   - Use `cudaStreamSynchronize()` before another thread calls backward pass
+   - Or use external mutex for backward pass calls
+
+::: warning Reference Implementation Note
+This design is acceptable for educational and single-stream production use cases.
+For multi-threaded training pipelines, consider managing workspaces externally.
+:::
 
 ## Memory Management
 
