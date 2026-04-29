@@ -4,11 +4,11 @@
 
 ## 项目定位
 
-CuFlash-Attn 是**从零实现的 CUDA C++ FlashAttention 参考库**，当前稳定在 `v0.3.0` 基线，正在进行最终治理与可归档稳定化。
+CuFlash-Attn 是**从零实现的 CUDA C++ FlashAttention 参考库**，已达到 `v0.3.0` 稳定基线，完成最终治理，可归档。
 
 - **范围明确**：O(N) 内存 FlashAttention，FP32/FP16，前向+反向
 - **规范驱动**：所有设计由 `openspec/specs/` 定义，代码遵循规范
-- **收尾姿态**：修复漂移、精简工程化、提升交接就绪度（不扩功能）
+- **稳定状态**：功能收敛、文档完善、流程精简，可长期维护
 
 ## 与 Claude 协作时的关键规则
 
@@ -88,14 +88,14 @@ ctest --preset release --output-on-failure
 | 路径 | 职责 |
 |------|------|
 | `openspec/specs/` | 规范真相源（需求、API、验证标准） |
-| `openspec/changes/` | 变更追踪（design, tasks, 完成后归档） |
+| `openspec/changes/archive/` | 已完成变更归档 |
 | `openspec/config.yaml` | 项目规则、context、anti-patterns |
 | `include/cuflash/` | 公开 API（C++ namespace） |
 | `src/api/`, `src/forward/`, `src/backward/` | 实现 |
 | `tests/unit/`, `tests/integration/` | 验证（需要 spec ID 注释） |
 | `docs/` | VitePress 双语文档站 |
 | `CONTRIBUTING.md` | 贡献者指南（流程、工具、风格） |
-| `AGENTS.md` | 多代理/CLI 合作指南（代码注释保留中文翻译） |
+| `AGENTS.md` | 多代理/CLI 合作指南 |
 | `.github/copilot-instructions.md` | GitHub Copilot 指令 |
 | `.github/pull_request_template.md` | PR 模板（包含 OpenSpec 决策声明） |
 
@@ -130,19 +130,8 @@ ctest --preset release --output-on-failure
 | 不检查 CUDA 返回值 | 每个 `cudaMalloc` 都检查 |
 | 直接 `cmake -B build` | 用 `cmake --preset` |
 
-## 成功指标
-
-项目完成最终治理后，应该达到：
-
-- ✅ 规范与代码、文档、测试同步更新
-- ✅ 所有变更可追踪（通过 OpenSpec changes）
-- ✅ 开发流程可重复（preset、format、review gates）
-- ✅ 交接文档完整（README, CONTRIBUTING.md, 控制文档, 双语 docs）
-- ✅ CI/CD 精简且可维护（无过度复杂的矩阵）
-- ✅ 代码示例与文档对齐（Python binding 示例、快速开始指南）
-
 ---
 
-**最后更新**: 2026-04-26  
-**维护状态**: v0.3.0 稳定基线，最终治理阶段  
+**最后更新**: 2026-04-29  
+**维护状态**: v0.3.0 稳定基线，已归档  
 **规范来源**: `openspec/specs/`

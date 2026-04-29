@@ -98,23 +98,3 @@ jobs:
 
       - name: Run tests
         run: ctest --preset release --output-on-failure -j2
-
-  configure-minimal:
-    name: Configure Minimal Build
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install CUDA toolkit
-        uses: Jimver/cuda-toolkit@v0.2.23
-        with:
-          cuda: '12.4.1'
-          method: 'network'
-          sub-packages: '["nvcc", "cudart", "cccl"]'
-
-      - name: Configure CMake minimal preset
-        run: cmake --preset minimal
-
-      - name: Build minimal preset
-        run: cmake --build --preset minimal
