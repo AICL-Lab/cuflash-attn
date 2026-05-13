@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" viewBox="0 0 120 40">
-  <rect width="120" height="40" rx="4" fill="#1a73e8"/>
-  <text x="60" y="25" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">CuFlash</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="4" fill="#0a0a0a" stroke="#222" stroke-width="1"/>
+  <polygon points="24,104 24,24 64,24 104,44 104,84 64,104" fill="none" stroke="#76B900" stroke-width="5" stroke-linejoin="miter"/>
+  <polygon points="44,84 44,44 64,44 84,54 84,74 64,84" fill="#76B900"/>
+  <text x="68" y="94" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="800" fill="#f8fafc">Cu</text>
 </svg>

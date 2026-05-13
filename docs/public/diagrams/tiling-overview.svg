@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320" width="800" height="320">
+  <defs>
+    <style>
+      .text { font-family: Inter, system-ui, sans-serif; font-size: 12px; fill: #f8fafc; }
+      .text-dark { font-family: Inter, system-ui, sans-serif; font-size: 12px; fill: #0f172a; }
+      .label { font-family: Inter, system-ui, sans-serif; font-size: 11px; fill: #94a3b8; }
+      .arrow { stroke: #76B900; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .block { stroke: #76B900; stroke-width: 1.5; }
+      .hbm { fill: #1a1a1a; stroke: #333; }
+      .sram { fill: #0f1a00; stroke: #76B900; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#76B900"/>
+    </marker>
+  </defs>
+  <rect width="800" height="320" fill="#000000"/>
+
+  <!-- HBM Layer -->
+  <rect x="40" y="30" width="720" height="100" class="hbm" rx="2"/>
+  <text x="60" y="52" class="text" font-weight="700" font-size="13">HBM (High Bandwidth Memory)</text>
+
+  <!-- Q matrix blocks -->
+  <rect x="60" y="65" width="60" height="40" class="block" fill="none"/>
+  <rect x="125" y="65" width="60" height="40" class="block" fill="none"/>
+  <rect x="190" y="65" width="60" height="40" class="block" fill="none"/>
+  <text x="155" y="115" class="label" text-anchor="middle">Q [N, d] → Q₁, Q₂, ... Q_Tr</text>
+
+  <!-- K matrix blocks -->
+  <rect x="320" y="65" width="40" height="40" class="block" fill="none"/>
+  <rect x="365" y="65" width="40" height="40" class="block" fill="none"/>
+  <rect x="410" y="65" width="40" height="40" class="block" fill="none"/>
+  <rect x="455" y="65" width="40" height="40" class="block" fill="none"/>
+  <text x="397" y="115" class="label" text-anchor="middle">K [N, d] → K₁, K₂, ... K_Tc</text>
+
+  <!-- V matrix blocks -->
+  <rect x="560" y="65" width="40" height="40" class="block" fill="none"/>
+  <rect x="605" y="65" width="40" height="40" class="block" fill="none"/>
+  <rect x="650" y="65" width="40" height="40" class="block" fill="none"/>
+  <rect x="695" y="65" width="40" height="40" class="block" fill="none"/>
+  <text x="667" y="115" class="label" text-anchor="middle">V [N, d] → V₁, V₂, ... V_Tc</text>
+
+  <!-- Arrows down -->
+  <line x1="155" y1="140" x2="155" y2="175" class="arrow"/>
+  <line x1="397" y1="140" x2="397" y2="175" class="arrow"/>
+  <line x1="667" y1="140" x2="667" y2="175" class="arrow"/>
+
+  <!-- SRAM Layer -->
+  <rect x="40" y="180" width="720" height="110" class="sram" rx="2"/>
+  <text x="60" y="202" class="text" font-weight="700" font-size="13" fill="#76B900">SRAM (Shared Memory / L1 Cache)</text>
+
+  <!-- Q block in SRAM -->
+  <rect x="80" y="215" width="70" height="50" class="block" fill="#111" rx="2"/>
+  <text x="115" y="245" class="text" text-anchor="middle" font-size="13" font-weight="600">Qᵢ</text>
+  <text x="115" y="265" class="label" text-anchor="middle">[Bᵣ, d]</text>
+
+  <!-- K block in SRAM -->
+  <rect x="330" y="215" width="50" height="50" class="block" fill="#111" rx="2"/>
+  <text x="355" y="245" class="text" text-anchor="middle" font-size="13" font-weight="600">Kⱼ</text>
+  <text x="355" y="265" class="label" text-anchor="middle">[Bᶜ, d]</text>
+
+  <!-- V block in SRAM -->
+  <rect x="540" y="215" width="50" height="50" class="block" fill="#111" rx="2"/>
+  <text x="565" y="245" class="text" text-anchor="middle" font-size="13" font-weight="600">Vⱼ</text>
+  <text x="565" y="265" class="label" text-anchor="middle">[Bᶜ, d]</text>
+
+  <!-- Compute arrows -->
+  <path d="M 150 240 L 330 240" class="arrow"/>
+  <text x="240" y="235" class="label" text-anchor="middle" font-size="10">Sᵢⱼ = Qᵢ × Kⱼᵀ</text>
+
+  <path d="M 380 240 L 540 240" class="arrow"/>
+  <text x="460" y="235" class="label" text-anchor="middle" font-size="10">Oᵢ += Pᵢⱼ × Vⱼ</text>
+
+  <!-- Output -->
+  <rect x="660" y="215" width="70" height="50" class="block" fill="#111" rx="2"/>
+  <text x="695" y="245" class="text" text-anchor="middle" font-size="13" font-weight="600">Oᵢ</text>
+  <text x="695" y="265" class="label" text-anchor="middle">[Bᵣ, d]</text>
+
+  <path d="M 590 240 L 660 240" class="arrow"/>
+
+  <!-- Bottom labels -->
+  <text x="400" y="310" class="label" text-anchor="middle" font-size="11">Each block fits in fast SRAM. Intermediate S and P never touch HBM.</text>
+</svg>

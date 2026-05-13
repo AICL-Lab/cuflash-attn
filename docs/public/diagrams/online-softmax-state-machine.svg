@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280" width="600" height="280">
+  <defs>
+    <style>
+      .text { font-family: Inter, system-ui, sans-serif; font-size: 13px; fill: #f8fafc; }
+      .label { font-family: JetBrains Mono, monospace; font-size: 12px; fill: #76B900; }
+      .box { stroke: #76B900; stroke-width: 1.5; fill: #111; }
+      .arrow { stroke: #76B900; stroke-width: 1.5; fill: none; marker-end: url(#a); }
+      .formula { font-family: JetBrains Mono, monospace; font-size: 11px; fill: #94a3b8; }
+    </style>
+    <marker id="a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#76B900"/>
+    </marker>
+  </defs>
+  <rect width="600" height="280" fill="#000000"/>
+
+  <!-- Title -->
+  <text x="300" y="28" class="text" text-anchor="middle" font-weight="700" font-size="15">Online Softmax State Machine</text>
+
+  <!-- States -->
+  <rect x="40" y="60" width="120" height="50" class="box" rx="2"/>
+  <text x="100" y="85" class="text" text-anchor="middle" font-weight="600">State (j-1)</text>
+  <text x="100" y="102" class="formula" text-anchor="middle">m, l, O</text>
+
+  <rect x="240" y="60" width="120" height="50" class="box" rx="2"/>
+  <text x="300" y="85" class="text" text-anchor="middle" font-weight="600">Compute Sᵢⱼ</text>
+  <text x="300" y="102" class="formula" text-anchor="middle">Qᵢ × Kⱼᵀ</text>
+
+  <rect x="440" y="60" width="120" height="50" class="box" rx="2"/>
+  <text x="500" y="85" class="text" text-anchor="middle" font-weight="600">State (j)</text>
+  <text x="500" y="102" class="formula" text-anchor="middle">m', l', O'</text>
+
+  <!-- Arrows -->
+  <line x1="160" y1="85" x2="240" y2="85" class="arrow"/>
+  <line x1="360" y1="85" x2="440" y2="85" class="arrow"/>
+
+  <!-- Formulas -->
+  <rect x="30" y="140" width="540" height="120" class="box" fill="#0a0a0a" rx="2"/>
+  <text x="300" y="165" class="text" text-anchor="middle" font-weight="600">Update Rules (per KV block j)</text>
+
+  <text x="50" y="195" class="label">m_new = max(m_old, rowmax(Sᵢⱼ))</text>
+  <text x="50" y="220" class="label">l_new = exp(m_old - m_new) × l_old + rowsum(exp(Sᵢⱼ - m_new))</text>
+  <text x="50" y="245" class="label">O_new = (exp(m_old - m_new) × O_old + exp(Sᵢⱼ - m_new) × Vⱼ) / l_new</text>
+
+  <!-- Key insight -->
+  <text x="300" y="270" class="formula" text-anchor="middle" font-size="10">Key: Previous outputs are rescaled by exp(m_old - m_new) when global max changes</text>
+</svg>
