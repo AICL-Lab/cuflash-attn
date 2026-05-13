@@ -1,6 +1,6 @@
 # FlashAttention Algorithm Deep Dive
 
-FlashAttention is an IO-aware algorithm for computing exact attention with reduced memory complexity from O(N²) to O(N), while achieving significant speedup in practice.
+FlashAttention is an IO-aware exact attention algorithm that reduces memory complexity from $O(N^2)$ to $O(N)$ while matching standard attention numerically.
 
 ---
 
@@ -23,21 +23,29 @@ FlashAttention is an IO-aware algorithm for computing exact attention with reduc
 
 ## Standard Attention Bottleneck
 
-Standard self-attention computation:
+Standard self-attention is defined as:
 
-```
-S = Q × K^T           # [N, N] — Attention score matrix
-P = softmax(S)        # [N, N] — Attention weight matrix
-O = P × V             # [N, d] — Output
-```
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d}}\right)V
+$$
 
-**Core Problem:** Intermediate matrices S and P have O(N²) size, must be stored in HBM (device memory). For large sequence lengths N:
+This expands to three materialized intermediate matrices:
+
+$$
+S = QK^T \in \mathbb{R}^{N \times N}, \quad P = \text{softmax}(S) \in \mathbb{R}^{N \times N}, \quad O = PV \in \mathbb{R}^{N \times d}
+$$
+
+**Core Problem:** $S$ and $P$ have $O(N^2)$ size and must reside in HBM (device memory). For large $N$:
 
 | Issue | Impact |
 |-------|--------|
-| **Memory Usage** | N=4096, 32 heads → ~2 GB just for attention matrices |
-| **Bandwidth Bottleneck** | GPU computation is much faster than HBM bandwidth; time dominated by data movement |
-| **IO Operations** | S and P each require write-to and read-from HBM: 4 O(N²) operations total |
+| **Memory Usage** | $N=4096$, 32 heads $\Rightarrow$ ~2 GB just for $S$ and $P$ |
+| **Bandwidth Bottleneck** | GPU compute $\gg$ HBM bandwidth; time dominated by data movement |
+| **IO Operations** | $S$ and $P$ each require write-to and read-from HBM: 4 $O(N^2)$ operations total |
+
+![Tiling Overview](/diagrams/tiling-overview.svg)
+
+*Figure 1: Q/K/V tiling into SRAM blocks. Intermediate $S$ and $P$ never touch HBM.*
 
 ---
 
@@ -45,89 +53,112 @@ O = P × V             # [N, d] — Output
 
 ### 1. Tiling
 
-Divide Q, K, V into blocks that fit in SRAM (shared memory):
+Divide $Q$, $K$, $V$ into blocks that fit in SRAM (shared memory / L1 cache):
 
-```
-Q = [Q_1, Q_2, ..., Q_Tr]    Each block [B_r, d]
-K = [K_1, K_2, ..., K_Tc]    Each block [B_c, d]
-V = [V_1, V_2, ..., V_Tc]    Each block [B_c, d]
-```
+$$
+Q = [Q_1, Q_2, \ldots, Q_{T_r}], \quad Q_i \in \mathbb{R}^{B_r \times d}
+$$
+
+$$
+K = [K_1, K_2, \ldots, K_{T_c}], \quad K_j \in \mathbb{R}^{B_c \times d}
+$$
+
+$$
+V = [V_1, V_2, \ldots, V_{T_c}], \quad V_j \in \mathbb{R}^{B_c \times d}
+$$
 
 **Block Size Selection:**
 
-| GPU Architecture | SRAM Size | Typical B_r × B_c |
-|------------------|-----------|-------------------|
-| Volta (V100) | 96 KB | 64 × 64 |
-| Ampere (A100) | 164 KB | 128 × 64 |
-| Hopper (H100) | 228 KB | 128 × 128 |
+| GPU Architecture | SRAM Size | Typical $B_r \times B_c$ |
+|------------------|-----------|--------------------------|
+| Volta (V100) | 96 KB | $64 \times 64$ |
+| Ampere (A100) | 164 KB | $128 \times 64$ |
+| Hopper (H100) | 228 KB | $128 \times 128$ |
 
 **Why Tiling Works:**
-- Each block fits in fast SRAM (L1/shared memory)
-- Avoids repeated HBM accesses for intermediate results
-- Enables parallel processing of independent blocks
+- Each block fits in fast SRAM ($\sim$19 TB/s) instead of slow HBM ($\sim$2 TB/s).
+- Avoids repeated HBM accesses for intermediate results.
+- Enables parallel processing of independent Q blocks.
 
 ### 2. Online Softmax
 
-Standard softmax requires two passes (find max → compute exp sum → normalize). FlashAttention uses online softmax to update incrementally in a single pass:
+Standard softmax requires two passes over each row (find $\max$ $\to$ compute $\exp$ sum $\to$ normalize). FlashAttention uses **online softmax** to update incrementally in a single pass over KV blocks:
 
-```python
-for each KV block j:
-    S_ij = Q_i × K_j^T                 # Local attention scores
-    m_new = max(m_old, rowmax(S_ij))   # Update global maximum
-    P = exp(S_ij - m_new)              # Local softmax numerator
-    l_new = exp(m_old - m_new) × l_old + rowsum(P)  # Update normalizer
-    O_i = (exp(m_old - m_new) × O_i + P × V_j) / l_new  # Update output
-```
+For each KV block $j$ processed by Q block $i$:
 
-**Key Insight:** When processing a new KV block, previous outputs must be corrected by `exp(m_old - m_new)` because the global maximum may have changed.
+$$
+m_{ij}^{\text{new}} = \max(m_{ij}^{\text{old}}, \text{rowmax}(S_{ij}))
+$$
 
-**Numerical Stability:** Tracking running maximum ensures no exp() overflow even for large attention scores.
+$$
+\tilde{P}_{ij} = \exp(S_{ij} - m_{ij}^{\text{new}})
+$$
+
+$$
+l_{ij}^{\text{new}} = \exp(m_{ij}^{\text{old}} - m_{ij}^{\text{new}}) \cdot l_{ij}^{\text{old}} + \text{rowsum}(\tilde{P}_{ij})
+$$
+
+$$
+O_{ij}^{\text{new}} = \frac{\exp(m_{ij}^{\text{old}} - m_{ij}^{\text{new}}) \cdot O_{ij}^{\text{old}} + \tilde{P}_{ij} V_j}{l_{ij}^{\text{new}}}
+$$
+
+![Online Softmax State Machine](/diagrams/online-softmax-state-machine.svg)
+
+*Figure 2: Online softmax state updates. When a new KV block reveals a larger row max, previous outputs are rescaled by $\exp(m_{\text{old}} - m_{\text{new}})$.*
+
+**Key Insight:** When processing a new KV block, previous outputs must be corrected by $\exp(m_{\text{old}} - m_{\text{new}})$ because the global row maximum may have changed.
+
+**Numerical Stability:** Tracking the running maximum ensures $\exp(\cdot)$ never overflows, even for large attention scores.
 
 ### 3. Recomputation
 
-Standard backward pass stores O(N²) attention matrix P for gradient computation. FlashAttention's strategy:
+Standard backward pass stores the $O(N^2)$ attention matrix $P$ for gradient computation. FlashAttention's strategy:
 
 | Phase | Storage | Memory |
 |-------|---------|--------|
-| **Forward** | Output O and logsumexp L only | O(N) |
-| **Backward** | Recompute attention weights from Q, K, V, O, L | O(N) |
+| **Forward** | Output $O$ and logsumexp $L$ only | $O(N)$ |
+| **Backward** | Recompute $P$ from $Q, K, V, O, L$ on-the-fly | $O(N)$ |
 
-**Trade-off:** Increases computation (~33% more FLOPs) but significantly reduces HBM IO, resulting in overall speedup.
+**Trade-off:** Increases computation by $\sim$33% extra FLOPs, but significantly reduces HBM IO, resulting in overall speedup.
+
+![Backward Recompute Flow](/diagrams/backward-recompute-flow.svg)
+
+*Figure 3: Backward pass recomputes $P_{ij}$ in SRAM from forward outputs. No $O(N^2)$ matrix is stored.*
 
 ---
 
 ## Forward Pass Algorithm
 
 ```
-Input: Q, K, V ∈ R^(N×d), scale
+Input:  Q, K, V ∈ R^(N×d), scale = 1/√d
 Output: O ∈ R^(N×d), L ∈ R^N
 
-Initialize: O = 0, m = -∞, l = 0
+Initialize: O = 0, m = -∞, l = 0  (per row)
 
-For each Q block i (parallel):
+For each Q block i (parallel over i = 1..T_r):
     Load Q_i to SRAM
-    For each KV block j:
+    For each KV block j = 1..T_c (sequential):
         Load K_j, V_j to SRAM
-        S_ij = scale × Q_i × K_j^T           # Compute in SRAM
-        m_new = max(m_i, rowmax(S_ij))
-        P = exp(S_ij - m_new)
+        S_ij = scale × Q_i × K_j^T           # [B_r, B_c] in SRAM
+        m_new = max(m_i, rowmax(S_ij))        # Update row max
+        P = exp(S_ij - m_new)                 # Local softmax numerator
         l_new = exp(m_i - m_new) × l_i + rowsum(P)
-        O_i = (l_i × exp(m_i - m_new) × O_i + P × V_j) / l_new
+        O_i = (exp(m_i - m_new) × O_i + P × V_j) / l_new
         m_i = m_new, l_i = l_new
     L_i = m_i + log(l_i)                      # Store logsumexp
 ```
 
 **Key Operations:**
-1. **Parallel over Q blocks:** Each output block computed independently
-2. **Sequential over KV blocks:** Accumulate attention across all keys
-3. **Output correction:** Adjust running sum when new maximum found
+1. **Parallel over Q blocks:** Each output block computed independently by one CUDA block.
+2. **Sequential over KV blocks:** Accumulate attention across all keys.
+3. **Output correction:** Adjust running sum when a new maximum is found.
 
 ---
 
 ## Backward Pass Algorithm
 
 ```
-Input: Q, K, V, O, L, dO
+Input:  Q, K, V, O, L, dO
 Output: dQ, dK, dV
 
 For each KV block j:
@@ -136,42 +167,36 @@ For each KV block j:
     For each Q block i:
         Load Q_i, O_i, dO_i, L_i to SRAM
         S_ij = scale × Q_i × K_j^T
-        P_ij = exp(S_ij - L_i)               # Recompute attention weights
-        D_i = rowsum(dO_i ⊙ O_i)             # Diagonal term
-        dV_j += P_ij^T × dO_i                # V gradient
+        P_ij = exp(S_ij - L_i)                # Recompute attention weights
+        D_i = rowsum(dO_i ⊙ O_i)              # Diagonal term
+        dV_j += P_ij^T × dO_i                 # V gradient
         dP_ij = dO_i × V_j^T
-        dS_ij = P_ij ⊙ (dP_ij - D_i)         # Softmax gradient
-        dQ_i += scale × dS_ij × K_j          # Q gradient
+        dS_ij = P_ij ⊙ (dP_ij - D_i)          # Softmax Jacobian
+        dQ_i += scale × dS_ij × K_j           # Q gradient
         dK_j += scale × dS_ij^T × Q_i        # K gradient
 ```
 
 **Gradient Flow:**
-1. **dV:** Weighted sum of gradients using attention weights
-2. **dQ, dK:** Through softmax Jacobian using recomputed P
-3. **Memory efficient:** No O(N²) storage needed
+1. **dV:** Weighted sum of upstream gradients using recomputed attention weights.
+2. **dQ, dK:** Through softmax Jacobian using recomputed $P$.
+3. **Memory efficient:** No $O(N^2)$ storage needed at any point.
 
 ---
 
 ## Causal Masking
 
-For autoregressive models (like GPT), position i can only attend to positions ≤ i. FlashAttention's block structure enables efficient causal masking:
+For autoregressive models, position $i$ can only attend to positions $\leq i$. FlashAttention's block structure enables efficient causal masking:
 
 | Case | Handling |
 |------|----------|
-| **Full skip** | KV block start column > Q block end row → skip entire block |
-| **Partial mask** | Apply mask within block (set to -∞) |
+| **Full skip** | KV block start column $>$ Q block end row $\Rightarrow$ skip entire block |
+| **Partial mask** | Apply mask within block (set to $-\infty$) |
 
 **Efficiency Gain:** Approximately 50% of blocks can be skipped entirely, reducing computation by half.
 
-**Implementation:**
-```
-for Q block i:
-    for KV block j:
-        if block_start_j > block_end_i:
-            continue  # Entire block masked, skip
-        elif block needs partial masking:
-            apply mask during softmax computation
-```
+![Causal Masking Blocks](/diagrams/causal-masking-blocks.svg)
+
+*Figure 4: Causal masking at block granularity. Lower-triangular blocks are fully computed; diagonal blocks are partially masked; upper-triangular blocks are skipped.*
 
 ---
 
@@ -183,25 +208,23 @@ This implementation fully supports FP16 (half precision) for both forward and ba
 
 FP16 inputs are converted to FP32 internally for computation, then converted back to FP16 for output:
 
-```
-Input: half* Q, K, V
-Internal: float (FP32) computation
-Output: half* O, L
-```
+$$
+\text{Input: } \texttt{half}^* \; Q, K, V \xrightarrow{\text{load}} \text{FP32 registers} \xrightarrow{\text{compute}} \text{FP32 accumulator} \xrightarrow{\text{store}} \texttt{half}^* \; O, L
+$$
 
 ### Numerical Precision
 
 | Operation | Precision |
 |-----------|-----------|
-| Matrix multiplication (Q × K^T) | FP32 |
+| Matrix multiplication ($Q \times K^T$) | FP32 |
 | Softmax computation | FP32 |
 | Accumulation | FP32 |
 | Final output | FP16 |
 
 **Benefits:**
-- Numerical stability comparable to FP32
-- Reduced memory bandwidth (2× smaller tensors)
-- Supported on all modern GPUs (compute capability ≥ 5.3)
+- Numerical stability comparable to FP32.
+- Reduced memory bandwidth (2$\times$ smaller tensors).
+- Supported on all modern GPUs (compute capability $\geq$ 5.3).
 
 ---
 
@@ -209,18 +232,18 @@ Output: half* O, L
 
 | Method | Forward Memory | Backward Memory | HBM IO |
 |--------|----------------|-----------------|--------|
-| Standard Attention | O(N²) | O(N²) | O(N² + Nd) |
-| FlashAttention | O(N) | O(N) | O(N²d / M) |
+| Standard Attention | $O(N^2)$ | $O(N^2)$ | $O(N^2 + Nd)$ |
+| FlashAttention | $O(N)$ | $O(N)$ | $O\left(\frac{N^2 d^2}{M}\right)$ |
 
-Where M is SRAM size. When M = Θ(Nd), IO complexity approaches O(Nd), which is optimal.
+Where $M$ is SRAM size. When $M = \Theta(Nd)$, IO complexity approaches $O(Nd)$, which is optimal since the inputs and outputs alone are $\Theta(Nd)$.
 
 ### Real Memory Savings
 
 | Sequence Length | Standard Attention | FlashAttention | Savings |
-|-----------------|-------------------|----------------|---------|
-| 1,024 | 4 MB | 8 KB | 99.8% |
-| 4,096 | 64 MB | 32 KB | 99.95% |
-| 16,384 | 1 GB | 128 KB | 99.99% |
+|-----------------|--------------------|----------------|---------|
+| 1,024 | 4 MB | 8 KB | **99.8%** |
+| 4,096 | 64 MB | 32 KB | **99.95%** |
+| 16,384 | 1 GB | 128 KB | **99.99%** |
 
 ---
 
@@ -228,28 +251,28 @@ Where M is SRAM size. When M = Θ(Nd), IO complexity approaches O(Nd), which is 
 
 ### Block Configuration
 
-| head_dim | BLOCK_M | BLOCK_N | Notes |
-|----------|---------|---------|-------|
-| 32 | 64 | 64 | Standard configuration |
-| 64 | 64 | 64 | Standard configuration |
-| 128 | 32 | 32 | Reduced for larger shared memory needs |
+| head_dim | $B_r$ | $B_c$ | SRAM per Block |
+|----------|-------|-------|----------------|
+| 32 | 64 | 64 | $\sim$32 KB |
+| 64 | 64 | 64 | $\sim$64 KB |
+| 128 | 32 | 32 | $\sim$128 KB |
 
 ### Optimization Techniques
 
 | Technique | Benefit |
 |-----------|---------|
-| **Vectorized Memory Access** | `float4` loads/stores for better bandwidth |
+| **Vectorized Memory Access** | `float4` loads/stores for coalesced bandwidth |
 | **Launch Bounds** | `__launch_bounds__(128)` controls register pressure |
-| **Dynamic Shared Memory** | Runtime allocation based on head_dim |
+| **Dynamic Shared Memory** | Runtime allocation based on `head_dim` |
 | **Stream Safety** | Explicit workspace lifetime management |
-| **Warp-level Primitives** | `__shfl_sync` for reduction operations |
+| **Warp-level Primitives** | `__shfl_sync` for intra-warp reduction |
 
 ### Data Type Support
 
 | Data Type | Forward | Backward |
 |-----------|---------|----------|
-| FP32 (float) | ✅ | ✅ |
-| FP16 (half) | ✅ | ✅ |
+| FP32 (`float`) | Full | Full |
+| FP16 (`half`) | Full | Full |
 
 ---
 

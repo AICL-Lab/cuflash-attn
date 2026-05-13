@@ -3,17 +3,21 @@
   "private": true,
   "version": "0.3.0",
   "type": "module",
-  "description": "High-performance documentation for CuFlash-Attn built with VitePress",
+  "description": "Academic-grade documentation for CuFlash-Attn",
   "scripts": {
     "docs:dev": "vitepress dev",
     "docs:build": "vitepress build",
-    "docs:preview": "vitepress preview",
-    "docs:serve": "vitepress serve"
+    "docs:preview": "vitepress preview"
   },
   "devDependencies": {
     "vite": "^5.2.11",
-    "vitepress": "^1.2.3",
-    "vue": "^3.4.27"
+    "vitepress": "^1.5.0"
+  },
+  "dependencies": {
+    "markdown-it-mathjax3": "^4.3.2",
+    "mermaid": "^11.12.2",
+    "vitepress-plugin-llms": "^1.10.0",
+    "vitepress-plugin-mermaid": "^2.0.17"
   },
   "engines": {
     "node": ">=18.0.0"

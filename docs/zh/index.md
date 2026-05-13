@@ -4,94 +4,166 @@ title: 文档
 
 hero:
   name: "CuFlash-Attn"
-  text: "CUDA FlashAttention 参考实现"
-  tagline: O(N) 内存 • FP32/FP16 • 前向/反向 • 可归档级 v0.3.0
+  text: "从零实现的 CUDA FlashAttention"
+  tagline: O(N) 内存复杂度 · FP32/FP16 · 前向与反向 · 教育级 & 生产就绪
   image:
     src: /hero-logo.svg
     alt: CuFlash-Attn
   actions:
     - theme: brand
-      text: 开始使用 →
+      text: 开始使用
       link: /zh/guide/quick-start
     - theme: alt
       text: 查看源码
       link: https://github.com/LessUp/cuflash-attn
-
-features:
-  - icon: ⚡
-    title: 线性内存
-    details: 通过 FlashAttention 分块处理 16K+ token 序列，内存复杂度 O(N) —— 比标准注意力节省 99.9%。
-  - icon: 🎯
-    title: 参考级质量
-    details: 清晰、教育性的 CUDA C++ 实现。无框架依赖。易于理解、修改和集成。
-  - icon: 🔢
-    title: 完整精度支持
-    details: FP32 和 FP16，数值感知累加。前向和反向传播完整支持训练流程。
-  - icon: 🎭
-    title: 因果掩码
-    details: 内置自回归模型支持。API 中一个布尔参数即可启用。
-  - icon: 🚀
-    title: 多 GPU 架构
-    details: 优化的 kernel 覆盖 V100 到 H100（sm_70 → sm_90）。生产级 CUDA 性能。
-  - icon: 📦
-    title: Python 就绪
-    details: C ABI 绑定支持 ctypes 集成。可与 PyTorch、NumPy 或原生 GPU 内存指针配合使用。
 ---
 
-<script setup>
-import { onMounted } from 'vue'
-
-onMounted(() => {
-  localStorage.setItem('preferred-lang', 'zh')
-})
-</script>
-
 <style>
-:root {
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(135deg, #3f83f8 0%, #60a5fa 50%, #a78bfa 100%);
-  --vp-home-hero-image-background-image: linear-gradient(135deg, #3f83f8 20%, #a78bfa 80%);
-  --vp-home-hero-image-filter: blur(50px);
+.VPHero {
+  background: #000000;
 }
-
 .VPHero .name {
-  font-size: 3.5rem !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.02em;
+  color: #ffffff !important;
 }
-
 .VPHero .text {
-  font-size: 1.75rem !important;
-  font-weight: 600 !important;
-  color: var(--vp-c-text-2) !important;
+  color: #94a3b8 !important;
+}
+.VPHero .tagline {
+  color: #64748b !important;
 }
 
-.VPHero .tagline {
-  font-size: 1.125rem !important;
-  color: var(--vp-c-text-3) !important;
-  max-width: 560px;
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+  padding: 4rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-feature-card {
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 4px;
+  padding: 1.5rem;
+  transition: border-color 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--vp-c-brand-1);
+  transform: scaleX(0);
+  transition: transform 0.15s ease;
+}
+
+.home-feature-card:hover {
+  border-color: var(--vp-c-brand-1);
+}
+
+.home-feature-card:hover::before {
+  transform: scaleX(1);
+}
+
+.home-feature-card h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--vp-c-text-1);
+}
+
+.home-feature-card p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+  margin-bottom: 0.75rem;
+}
+
+.home-feature-card a {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+}
+
+.home-feature-card a:hover {
+  text-decoration: underline;
+}
+
+.citation-bar {
+  background: var(--vp-c-bg-alt);
+  border-top: 1px solid var(--vp-c-border);
+  padding: 2rem;
+}
+
+.citation-bar .container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.citation-bar h4 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--vp-c-text-3);
+  margin-bottom: 1rem;
+}
+
+.citation-bar .citation-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.citation-bar .citation-item {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--vp-c-text-2);
+  padding: 0.75rem;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 4px;
+}
+
+.citation-bar .citation-item a {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
 }
 </style>
 
-## 为什么选择 CuFlash-Attn？
-
-::: tip 适用场景
-你想**理解** FlashAttention 内部原理，**实验**注意力机制，或在没有重型框架依赖的情况下**集成**到项目中。
-:::
-
-### 快速对比
-
-| 特性 | CuFlash-Attn | PyTorch SDPA | FlashAttention-2 |
-|------|:------------:|:------------:|:----------------:|
-| 教育性代码 | ✅ | ❌ | ⚠️ |
-| 无依赖 | ✅ | ❌ PyTorch | ❌ |
-| Python 绑定 | ✅ ctypes | ✅ 原生 | ✅ |
-| 训练支持 | ✅ | ✅ | ✅ |
-| 可定制 | ✅ 简单 | ⚠️ 困难 | ⚠️ |
+<div class="home-features">
+  <div class="home-feature-card">
+    <h3>O(N) 内存</h3>
+    <p>通过 FlashAttention 分块技术，在单 GPU 上处理 16K+ token 序列。HBM 中不存储 O(N²) 注意力矩阵。</p>
+    <a href="/cuflash-attn/zh/algorithm">算法详解 &rarr;</a>
+  </div>
+  <div class="home-feature-card">
+    <h3>零依赖</h3>
+    <p>纯 CUDA C++，无 PyTorch、无 Cutlass、无 Triton。理解每一行代码，修改每一个细节。</p>
+    <a href="/cuflash-attn/zh/design/kernel-deep-dive">Kernel 逐行解读 &rarr;</a>
+  </div>
+  <div class="home-feature-card">
+    <h3>完整训练支持</h3>
+    <p>前向与反向传播，含梯度重计算。FP32 与 FP16，数值安全累加。</p>
+    <a href="/cuflash-attn/zh/api-reference">API 参考 &rarr;</a>
+  </div>
+  <div class="home-feature-card">
+    <h3>多架构覆盖</h3>
+    <p>针对 Volta 到 Hopper（sm_70 &rarr; sm_90）优化。支持 V100、A100、H100 及消费级 GPU。</p>
+    <a href="/cuflash-attn/zh/performance/benchmarks">基准测试 &rarr;</a>
+  </div>
+</div>
 
 ## 快速开始
 
-5 分钟内运行：
+5 分钟内构建并运行：
 
 ::: code-group
 
@@ -119,7 +191,6 @@ auto err = cuflash::flash_attention_forward(
 import ctypes
 lib = ctypes.CDLL("./build/release/libcuflash_attn.so")
 
-# 通过 C ABI 调用
 lib.cuflash_attention_forward_f32(
     q_ptr, k_ptr, v_ptr, o_ptr, l_ptr,
     B, H, N, D, scale, True, None
@@ -140,21 +211,32 @@ lib.cuflash_attention_forward_f32(
 
 | 资源 | 描述 |
 |------|------|
-| [快速开始指南](/zh/guide/quick-start) | Preset 构建路径 |
-| [从源码构建](/zh/building) | 平台、presets、覆盖参数 |
-| [API 参考](/zh/api-reference) | 完整 C++ 和 C ABI 文档 |
+| [快速开始](/zh/guide/quick-start) | Preset 构建与第一步 |
+| [从源码构建](/zh/building) | 平台、presets 与 CMake 覆盖参数 |
 | [算法详解](/zh/algorithm) | 分块、online softmax、重计算 |
-| [故障排除](/zh/troubleshooting) | 常见问题与解决方案 |
+| [Kernel 逐行解读](/zh/design/kernel-deep-dive) | 共享内存、warp 调度、向量化加载 |
+| [设计决策](/zh/design/design-decisions) | 关键选择的 ADR 式 rationale |
+| [API 参考](/zh/api-reference) | 完整 C++ 与 C ABI 文档 |
+| [基准测试](/zh/performance/benchmarks) | 可复现的性能数据 |
+| [Roofline 分析](/zh/performance/roofline-analysis) | 带宽与计算边界 |
+| [相关工作](/zh/research/related-work) | 论文与实现对比 |
 
-## 项目状态
-
-**稳定的 v0.3.0 基线** —— 可归档级参考实现。当前重点：文档质量、工作流简化、Bug 修复。
-
-详见 [项目状态](/zh/project-status) 了解维护姿态与治理规则。
-
-## OpenSpec 规范
-
-本项目遵循 **OpenSpec** 规范驱动方法。权威需求定义：
-
-- [设计规范](https://github.com/LessUp/cuflash-attn/blob/master/openspec/specs/design/flash-attention-design.md)
-- [验证规范](https://github.com/LessUp/cuflash-attn/blob/master/openspec/specs/verification/flash-attention-verification.md)
+<div class="citation-bar">
+  <div class="container">
+    <h4>核心参考文献</h4>
+    <div class="citation-list">
+      <div class="citation-item">
+        <strong>FlashAttention</strong> — Dao et al., NeurIPS 2022.<br>
+        <a href="https://arxiv.org/abs/2205.14135">arXiv:2205.14135</a>
+      </div>
+      <div class="citation-item">
+        <strong>FlashAttention-2</strong> — Dao, ICLR 2024.<br>
+        <a href="https://arxiv.org/abs/2307.08691">arXiv:2307.08691</a>
+      </div>
+      <div class="citation-item">
+        <strong>Online Softmax</strong> — Milakov & Gimelshein.<br>
+        <a href="https://arxiv.org/abs/1805.02867">arXiv:1805.02867</a>
+      </div>
+    </div>
+  </div>
+</div>

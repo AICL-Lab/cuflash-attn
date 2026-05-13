@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 450" width="700" height="450">
+  <defs>
+    <style>
+      .text { font-family: Inter, system-ui, sans-serif; font-size: 12px; fill: #f8fafc; }
+      .label { font-family: JetBrains Mono, monospace; font-size="11px" fill: #94a3b8; }
+      .axis { stroke: #444; stroke-width: 1; }
+      .roof { stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 4,3; }
+      .band { stroke: #76B900; stroke-width: 2; }
+      .point { fill: #76B900; }
+      .point2 { fill: #f59e0b; }
+    </style>
+  </defs>
+  <rect width="700" height="450" fill="#000000"/>
+  <text x="350" y="28" class="text" text-anchor="middle" font-weight="700" font-size="15">Roofline Model: FlashAttention Positioning</text>
+
+  <!-- Axes -->
+  <line x1="80" y1="400" x2="650" y2="400" class="axis"/>
+  <line x1="80" y1="400" x2="80" y2="50" class="axis"/>
+
+  <text x="365" y="430" class="text" text-anchor="middle" font-size="13">Arithmetic Intensity (FLOP/Byte)</text>
+  <text x="30" y="225" class="text" text-anchor="middle" font-size="13" transform="rotate(-90 30 225)">Performance (GFLOP/s)</text>
+
+  <!-- Log scale ticks X -->
+  <text x="80" y="420" class="label" text-anchor="middle" font-size="10">1</text>
+  <text x="200" y="420" class="label" text-anchor="middle" font-size="10">10</text>
+  <text x="320" y="420" class="label" text-anchor="middle" font-size="10">10²</text>
+  <text x="440" y="420" class="label" text-anchor="middle" font-size="10">10³</text>
+  <text x="560" y="420" class="label" text-anchor="middle" font-size="10">10⁴</text>
+
+  <!-- Log scale ticks Y -->
+  <text x="65" y="400" class="label" text-anchor="end" font-size="10">10¹</text>
+  <text x="65" y="340" class="label" text-anchor="end" font-size="10">10²</text>
+  <text x="65" y="280" class="label" text-anchor="end" font-size="10">10³</text>
+  <text x="65" y="220" class="label" text-anchor="end" font-size="10">10⁴</text>
+  <text x="65" y="160" class="label" text-anchor="end" font-size="10">10⁵</text>
+  <text x="65" y="100" class="label" text-anchor="end" font-size="10">10⁶</text>
+
+  <!-- Memory bandwidth roof (slope 1 line from origin) -->
+  <!-- A100 ridge point at ~153 FLOP/Byte, peak 312 TFLOPS = 3.12e5 GFLOPS -->
+  <!-- Plot: y = min(beta * x, pi) -->
+  <!-- beta = 2039 GB/s = 2.039e3. pi = 3.12e5. ridge = 3.12e5 / 2.039e3 ≈ 153 -->
+  <!-- Map: log10(x) from 0 to 4 (1 to 10000), x from 80 to 560 -->
+  <!-- Map: log10(y) from 1 to 6 (10 to 1e6), y from 400 to 50 -->
+
+  <!-- Bandwidth line -->
+  <polyline points="80,400 200,341 320,282 440,223" class="band" fill="none"/>
+  <text x="360" y="240" class="label" font-size="10" fill="#76B900">Memory Bandwidth Roof</text>
+
+  <!-- Compute roof (horizontal) -->
+  <line x1="440" y1="100" x2="620" y2="100" class="roof"/>
+  <text x="520" y="90" class="label" font-size="10" fill="#64748b">Compute Roof (A100 FP16)</text>
+
+  <!-- Ridge point marker -->
+  <circle cx="440" cy="100" r="4" fill="#fff" stroke="#76B900" stroke-width="2"/>
+  <text x="455" y="95" class="label" font-size="10" fill="#fff">Ridge Point (AI ≈ 153)</text>
+
+  <!-- Standard Attention point -->
+  <circle cx="200" cy="341" r="5" class="point2"/>
+  <text x="215" y="345" class="label" font-size="10" fill="#f59e0b">Standard Attention</text>
+  <text x="215" y="358" class="label" font-size="9" fill="#f59e0b">AI ≈ 10, Memory-bound</text>
+
+  <!-- FlashAttention point -->
+  <circle cx="260" cy="282" r="5" class="point"/>
+  <text x="275" y="286" class="label" font-size="10" fill="#76B900">FlashAttention</text>
+  <text x="275" y="299" class="label" font-size="9" fill="#76B900">AI ≈ 60, Still memory-bound</text>
+
+  <!-- Improvement arrow -->
+  <line x1="230" y1="310" x2="245" y2="295" stroke="#76B900" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="170" y="320" class="label" font-size="10" fill="#76B900">Tiling shifts right</text>
+
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#76B900"/>
+    </marker>
+  </defs>
+</svg>

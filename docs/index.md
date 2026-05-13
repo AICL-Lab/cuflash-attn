@@ -23,24 +23,24 @@ function setLanguage(lang) {
 
 # CuFlash-Attn
 
-**OpenSpec-driven CUDA FlashAttention reference implementation** with FP32/FP16 support, forward and backward kernels, and a stable `v0.3.0` baseline aimed at long-term handoff and archival quality.
+**From-scratch CUDA FlashAttention reference implementation** with FP32/FP16 support, forward and backward kernels, and a stable `v0.3.0` baseline.
 
 <div class="lang-grid">
   <a href="/cuflash-attn/en/" class="lang-card" @click="setLanguage('en')">
     <strong>English</strong>
-    <span>Guide, build notes, API reference, troubleshooting, and project status.</span>
+    <span>Guide, build notes, API reference, research, and project status.</span>
   </a>
   <a href="/cuflash-attn/zh/" class="lang-card" @click="setLanguage('zh')">
     <strong>简体中文</strong>
-    <span>面向中文读者的上手指南、构建说明、接口文档、故障排除与项目状态。</span>
+    <span>面向中文读者的上手指南、构建说明、接口文档、研究与项目状态。</span>
   </a>
 </div>
 
 ## What this site is for
 
-- explain the supported API and build surface
-- point to the canonical OpenSpec design and verification sources
-- provide a clean entry point for integration, review, and handoff work
+- Explain the supported API, algorithm, performance model, and build surface
+- Point to the canonical OpenSpec design and verification sources
+- Provide a clean entry point for integration, review, and handoff work
 
 ## Canonical project links
 
@@ -64,17 +64,33 @@ function setLanguage(lang) {
   gap: 0.75rem;
   padding: 1.5rem;
   border: 1px solid var(--vp-c-border);
-  border-radius: 16px;
-  background: var(--vp-c-bg-soft);
+  border-radius: 4px;
+  background: var(--vp-c-bg);
   color: inherit;
   text-decoration: none;
-  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  transition: border-color 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.lang-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--vp-c-brand-1);
+  transform: scaleX(0);
+  transition: transform 0.15s ease;
 }
 
 .lang-card:hover {
-  border-color: var(--vp-c-brand);
-  background: var(--vp-c-bg-elv);
-  transform: translateY(-2px);
+  border-color: var(--vp-c-brand-1);
+}
+
+.lang-card:hover::before {
+  transform: scaleX(1);
 }
 
 .lang-card strong {

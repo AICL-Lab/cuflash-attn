@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <defs>
+    <style>
+      .text { font-family: Inter, system-ui, sans-serif; font-size: 12px; }
+      .label { font-family: JetBrains Mono, monospace; font-size: 10px; fill: #94a3b8; }
+      .skip { fill: #1a1a1a; stroke: #333; }
+      .partial { fill: #2a1a00; stroke: #f59e0b; }
+      .full { fill: #0f1a00; stroke: #76B900; }
+    </style>
+    <pattern id="diag" patternUnits="userSpaceOnUse" width="8" height="8">
+      <path d="M0,8 L8,0" stroke="#333" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="500" height="500" fill="#000000"/>
+  <text x="250" y="28" class="text" text-anchor="middle" font-weight="700" font-size="15" fill="#f8fafc">Causal Masking: Block-Level Skip Logic</text>
+
+  <!-- Grid of 6x6 blocks -->
+  <g transform="translate(60, 60)">
+    <!-- Row 0 -->
+    <rect x="0" y="0" width="60" height="60" class="full"/>
+    <rect x="60" y="0" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="120" y="0" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="180" y="0" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="240" y="0" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="300" y="0" width="60" height="60" class="skip" fill="url(#diag)"/>
+
+    <!-- Row 1 -->
+    <rect x="0" y="60" width="60" height="60" class="full"/>
+    <rect x="60" y="60" width="60" height="60" class="full"/>
+    <rect x="120" y="60" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="180" y="60" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="240" y="60" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="300" y="60" width="60" height="60" class="skip" fill="url(#diag)"/>
+
+    <!-- Row 2 -->
+    <rect x="0" y="120" width="60" height="60" class="full"/>
+    <rect x="60" y="120" width="60" height="60" class="full"/>
+    <rect x="120" y="120" width="60" height="60" class="full"/>
+    <rect x="180" y="120" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="240" y="120" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="300" y="120" width="60" height="60" class="skip" fill="url(#diag)"/>
+
+    <!-- Row 3 -->
+    <rect x="0" y="180" width="60" height="60" class="full"/>
+    <rect x="60" y="180" width="60" height="60" class="full"/>
+    <rect x="120" y="180" width="60" height="60" class="full"/>
+    <rect x="180" y="180" width="60" height="60" class="partial"/>
+    <rect x="240" y="180" width="60" height="60" class="skip" fill="url(#diag)"/>
+    <rect x="300" y="180" width="60" height="60" class="skip" fill="url(#diag)"/>
+
+    <!-- Row 4 -->
+    <rect x="0" y="240" width="60" height="60" class="full"/>
+    <rect x="60" y="240" width="60" height="60" class="full"/>
+    <rect x="120" y="240" width="60" height="60" class="full"/>
+    <rect x="180" y="240" width="60" height="60" class="full"/>
+    <rect x="240" y="240" width="60" height="60" class="partial"/>
+    <rect x="300" y="240" width="60" height="60" class="skip" fill="url(#diag)"/>
+
+    <!-- Row 5 -->
+    <rect x="0" y="300" width="60" height="60" class="full"/>
+    <rect x="60" y="300" width="60" height="60" class="full"/>
+    <rect x="120" y="300" width="60" height="60" class="full"/>
+    <rect x="180" y="300" width="60" height="60" class="full"/>
+    <rect x="240" y="300" width="60" height="60" class="full"/>
+    <rect x="300" y="300" width="60" height="60" class="partial"/>
+
+    <!-- Labels -->
+    <text x="30" y="-10" class="label" text-anchor="middle">K₀</text>
+    <text x="90" y="-10" class="label" text-anchor="middle">K₁</text>
+    <text x="150" y="-10" class="label" text-anchor="middle">K₂</text>
+    <text x="210" y="-10" class="label" text-anchor="middle">K₃</text>
+    <text x="270" y="-10" class="label" text-anchor="middle">K₄</text>
+    <text x="330" y="-10" class="label" text-anchor="middle">K₅</text>
+
+    <text x="-15" y="35" class="label" text-anchor="end">Q₀</text>
+    <text x="-15" y="95" class="label" text-anchor="end">Q₁</text>
+    <text x="-15" y="155" class="label" text-anchor="end">Q₂</text>
+    <text x="-15" y="215" class="label" text-anchor="end">Q₃</text>
+    <text x="-15" y="275" class="label" text-anchor="end">Q₄</text>
+    <text x="-15" y="335" class="label" text-anchor="end">Q₅</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(60, 420)">
+    <rect x="0" y="0" width="20" height="20" class="full" rx="2"/>
+    <text x="30" y="15" class="text" fill="#f8fafc">Full Compute</text>
+
+    <rect x="140" y="0" width="20" height="20" class="partial" rx="2"/>
+    <text x="170" y="15" class="text" fill="#f8fafc">Partial Mask</text>
+
+    <rect x="280" y="0" width="20" height="20" class="skip" fill="url(#diag)" rx="2"/>
+    <text x="310" y="15" class="text" fill="#f8fafc">Skip (causal)</text>
+  </g>
+
+  <text x="250" y="485" class="label" text-anchor="middle">~50% of blocks skipped entirely for autoregressive models</text>
+</svg>

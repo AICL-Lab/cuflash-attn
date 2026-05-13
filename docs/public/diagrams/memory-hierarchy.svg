@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" width="700" height="380">
+  <defs>
+    <style>
+      .text { font-family: Inter, system-ui, sans-serif; font-size: 12px; fill: #f8fafc; }
+      .label { font-family: JetBrains Mono, monospace; font-size: 11px; fill: #94a3b8; }
+      .green { fill: #76B900; }
+      .box { stroke: #333; stroke-width: 1; }
+      .active { stroke: #76B900; stroke-width: 2; }
+    </style>
+  </defs>
+  <rect width="700" height="380" fill="#000000"/>
+  <text x="350" y="28" class="text" text-anchor="middle" font-weight="700" font-size="15">GPU Memory Hierarchy &amp; FlashAttention Data Flow</text>
+
+  <!-- Pyramid layers from bottom to top -->
+  <!-- HBM -->
+  <polygon points="150,340 550,340 520,280 180,280" class="box" fill="#1a1a1a"/>
+  <text x="350" y="320" class="text" text-anchor="middle" font-weight="700" font-size="14">HBM</text>
+  <text x="350" y="338" class="label" text-anchor="middle">40-80 GB · ~2 TB/s · High Latency</text>
+
+  <!-- L2 Cache -->
+  <polygon points="180,270 520,270 490,210 210,210" class="box" fill="#151515"/>
+  <text x="350" y="250" class="text" text-anchor="middle" font-weight="600" font-size="13">L2 Cache</text>
+  <text x="350" y="265" class="label" text-anchor="middle">~40 MB · Shared across SMs</text>
+
+  <!-- SRAM -->
+  <polygon points="210,200 490,200 460,140 240,140" class="active" fill="#0f1a00"/>
+  <text x="350" y="175" class="green" text-anchor="middle" font-weight="700" font-size="14">SRAM (Shared Memory)</text>
+  <text x="350" y="193" class="label" text-anchor="middle">96-228 KB per SM · ~19 TB/s · Kernel-managed</text>
+
+  <!-- Registers -->
+  <polygon points="240,130 460,130 430,70 270,70" class="box" fill="#111111"/>
+  <text x="350" y="105" class="text" text-anchor="middle" font-weight="600" font-size="13">Registers</text>
+  <text x="350" y="123" class="label" text-anchor="middle">~256 KB per SM · Fastest</text>
+
+  <!-- Data flow arrows -->
+  <line x1="580" y1="310" x2="580" y2="165" stroke="#76B900" stroke-width="2" marker-end="url(#up)"/>
+  <text x="590" y="240" class="label" font-size="10" fill="#76B900">Load tiles</text>
+
+  <line x1="120" y1="165" x2="120" y2="310" stroke="#76B900" stroke-width="2" marker-end="url(#down)"/>
+  <text x="60" y="240" class="label" font-size="10" fill="#76B900">Store output O</text>
+
+  <!-- Green highlight box around SRAM -->
+  <rect x="210" y="138" width="280" height="64" fill="none" stroke="#76B900" stroke-width="2" stroke-dasharray="4,2" rx="2"/>
+  <text x="350" y="130" class="green" text-anchor="middle" font-size="11" font-weight="600">FlashAttention operates here</text>
+
+  <defs>
+    <marker id="up" markerWidth="8" markerHeight="6" refX="4" refY="6" orient="auto">
+      <polygon points="0 6, 4 0, 8 6" fill="#76B900"/>
+    </marker>
+    <marker id="down" markerWidth="8" markerHeight="6" refX="4" refY="0" orient="auto">
+      <polygon points="0 0, 4 6, 8 0" fill="#76B900"/>
+    </marker>
+  </defs>
+
+  <!-- Right side annotation -->
+  <rect x="560" y="60" width="120" height="80" fill="#0a0a0a" stroke="#333" rx="2"/>
+  <text x="570" y="80" class="text" font-size="11" font-weight="600">Standard Attention</text>
+  <text x="570" y="100" class="label" font-size="10">S, P stored in HBM</text>
+  <text x="570" y="115" class="label" font-size="10">O(N²) memory</text>
+  <text x="570" y="130" class="label" font-size="10">4× HBM traffic</text>
+</svg>
