@@ -4,8 +4,8 @@
 #include <float.h>
 
 #include "cuflash/flash_attention.h"
+#include "impl/tile_io.cuh"
 #include "kernel_launch_utils.cuh"
-#include "matmul.cuh"
 #include "workspace_utils.cuh"
 
 namespace cuflash {
@@ -27,7 +27,7 @@ __global__ void __launch_bounds__(128)
     float sum = 0.0f;
 #pragma unroll
     for (int d = 0; d < HEAD_DIM; d++) {
-        sum += to_float(dO_row[d]) * to_float(O_row[d]);
+        sum += impl::to_float(dO_row[d]) * impl::to_float(O_row[d]);
     }
 
     D[batch_head_idx * seq_len + row_idx] = sum;
@@ -70,16 +70,17 @@ __global__ void __launch_bounds__(128)
     float* L_tile = dQ_tile + BLOCK_M * HEAD_DIM;  // BLOCK_M
     float* D_tile = L_tile + BLOCK_M;              // BLOCK_M
 
-    load_tile_to_shared<BLOCK_M, HEAD_DIM>(Q_ptr, Q_tile, q_start, 0, seq_len, HEAD_DIM, HEAD_DIM);
-    load_tile_to_shared<BLOCK_M, HEAD_DIM>(dO_ptr, dO_tile, q_start, 0, seq_len, HEAD_DIM,
-                                           HEAD_DIM);
+    impl::load_tile_to_shared<BLOCK_M, HEAD_DIM>(Q_ptr, Q_tile, q_start, 0, seq_len, HEAD_DIM,
+                                                 HEAD_DIM);
+    impl::load_tile_to_shared<BLOCK_M, HEAD_DIM>(dO_ptr, dO_tile, q_start, 0, seq_len, HEAD_DIM,
+                                                 HEAD_DIM);
 
     for (int i = tid; i < BLOCK_M * HEAD_DIM; i += num_threads) {
         dQ_tile[i] = 0.0f;
     }
     for (int i = tid; i < BLOCK_M; i += num_threads) {
         int global_idx = q_start + i;
-        L_tile[i] = (global_idx < seq_len) ? to_float(L_ptr[global_idx]) : 0.0f;
+        L_tile[i] = (global_idx < seq_len) ? impl::to_float(L_ptr[global_idx]) : 0.0f;
         D_tile[i] = (global_idx < seq_len) ? D_ptr[global_idx] : 0.0f;
     }
     __syncthreads();
@@ -91,13 +92,13 @@ __global__ void __launch_bounds__(128)
             break;
         }
 
-        load_tile_to_shared<BLOCK_N, HEAD_DIM>(K_ptr, K_tile, kv_start, 0, seq_len, HEAD_DIM,
-                                               HEAD_DIM);
-        load_tile_to_shared<BLOCK_N, HEAD_DIM>(V_ptr, V_tile, kv_start, 0, seq_len, HEAD_DIM,
-                                               HEAD_DIM);
+        impl::load_tile_to_shared<BLOCK_N, HEAD_DIM>(K_ptr, K_tile, kv_start, 0, seq_len, HEAD_DIM,
+                                                     HEAD_DIM);
+        impl::load_tile_to_shared<BLOCK_N, HEAD_DIM>(V_ptr, V_tile, kv_start, 0, seq_len, HEAD_DIM,
+                                                     HEAD_DIM);
         __syncthreads();
 
-        matmul_ABt<BLOCK_M, BLOCK_N, HEAD_DIM>(Q_tile, K_tile, S_tile, scale);
+        impl::matmul_ABt<BLOCK_M, BLOCK_N, HEAD_DIM>(Q_tile, K_tile, S_tile, scale);
         __syncthreads();
 
         for (int i = tid; i < BLOCK_M * BLOCK_N; i += num_threads) {
@@ -135,8 +136,8 @@ __global__ void __launch_bounds__(128)
         __syncthreads();
     }
 
-    store_tile_from_shared<BLOCK_M, HEAD_DIM>(dQ_tile, dQ_ptr, q_start, 0, seq_len, HEAD_DIM,
-                                              HEAD_DIM);
+    impl::store_tile_from_shared<BLOCK_M, HEAD_DIM>(dQ_tile, dQ_ptr, q_start, 0, seq_len, HEAD_DIM,
+                                                    HEAD_DIM);
 }
 
 // Compute dK and dV for one kv-block - unified template
@@ -178,8 +179,10 @@ __global__ void __launch_bounds__(128)
     float* L_tile = dV_tile + BLOCK_N * HEAD_DIM;   // BLOCK_M
     float* D_tile = L_tile + BLOCK_M;               // BLOCK_M
 
-    load_tile_to_shared<BLOCK_N, HEAD_DIM>(K_ptr, K_tile, kv_start, 0, seq_len, HEAD_DIM, HEAD_DIM);
-    load_tile_to_shared<BLOCK_N, HEAD_DIM>(V_ptr, V_tile, kv_start, 0, seq_len, HEAD_DIM, HEAD_DIM);
+    impl::load_tile_to_shared<BLOCK_N, HEAD_DIM>(K_ptr, K_tile, kv_start, 0, seq_len, HEAD_DIM,
+                                                 HEAD_DIM);
+    impl::load_tile_to_shared<BLOCK_N, HEAD_DIM>(V_ptr, V_tile, kv_start, 0, seq_len, HEAD_DIM,
+                                                 HEAD_DIM);
 
     for (int i = tid; i < BLOCK_N * HEAD_DIM; i += num_threads) {
         dK_tile[i] = 0.0f;
@@ -194,19 +197,19 @@ __global__ void __launch_bounds__(128)
             continue;
         }
 
-        load_tile_to_shared<BLOCK_M, HEAD_DIM>(Q_ptr, Q_tile, q_start, 0, seq_len, HEAD_DIM,
-                                               HEAD_DIM);
-        load_tile_to_shared<BLOCK_M, HEAD_DIM>(dO_ptr, dO_tile, q_start, 0, seq_len, HEAD_DIM,
-                                               HEAD_DIM);
+        impl::load_tile_to_shared<BLOCK_M, HEAD_DIM>(Q_ptr, Q_tile, q_start, 0, seq_len, HEAD_DIM,
+                                                     HEAD_DIM);
+        impl::load_tile_to_shared<BLOCK_M, HEAD_DIM>(dO_ptr, dO_tile, q_start, 0, seq_len, HEAD_DIM,
+                                                     HEAD_DIM);
 
         for (int i = tid; i < BLOCK_M; i += num_threads) {
             int global_idx = q_start + i;
-            L_tile[i] = (global_idx < seq_len) ? to_float(L_ptr[global_idx]) : 0.0f;
+            L_tile[i] = (global_idx < seq_len) ? impl::to_float(L_ptr[global_idx]) : 0.0f;
             D_tile[i] = (global_idx < seq_len) ? D_ptr[global_idx] : 0.0f;
         }
         __syncthreads();
 
-        matmul_ABt<BLOCK_M, BLOCK_N, HEAD_DIM>(Q_tile, K_tile, S_tile, scale);
+        impl::matmul_ABt<BLOCK_M, BLOCK_N, HEAD_DIM>(Q_tile, K_tile, S_tile, scale);
         __syncthreads();
 
         for (int i = tid; i < BLOCK_M * BLOCK_N; i += num_threads) {
@@ -276,10 +279,10 @@ __global__ void __launch_bounds__(128)
         __syncthreads();
     }
 
-    store_tile_from_shared<BLOCK_N, HEAD_DIM>(dK_tile, dK_ptr, kv_start, 0, seq_len, HEAD_DIM,
-                                              HEAD_DIM);
-    store_tile_from_shared<BLOCK_N, HEAD_DIM>(dV_tile, dV_ptr, kv_start, 0, seq_len, HEAD_DIM,
-                                              HEAD_DIM);
+    impl::store_tile_from_shared<BLOCK_N, HEAD_DIM>(dK_tile, dK_ptr, kv_start, 0, seq_len, HEAD_DIM,
+                                                    HEAD_DIM);
+    impl::store_tile_from_shared<BLOCK_N, HEAD_DIM>(dV_tile, dV_ptr, kv_start, 0, seq_len, HEAD_DIM,
+                                                    HEAD_DIM);
 }
 
 // Explicit template instantiations for FP32

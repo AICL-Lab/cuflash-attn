@@ -5,18 +5,13 @@
 #include <stdint.h>
 
 namespace cuflash {
+namespace impl {
 
 // Type conversion utilities for unified FP32/FP16 kernels
 __device__ __forceinline__ float to_float(float val) {
     return val;
 }
 __device__ __forceinline__ float to_float(half val) {
-    return __half2float(val);
-}
-__device__ __forceinline__ float to_float(float val, int) {
-    return val;
-}
-__device__ __forceinline__ float to_float(half val, int) {
     return __half2float(val);
 }
 
@@ -27,6 +22,7 @@ __device__ __forceinline__ void store_float(half* ptr, float val) {
     *ptr = __float2half(val);
 }
 
+// Check alignment for float4 vectorized loads (16-byte alignment)
 __device__ __forceinline__ bool is_aligned_16(const void* ptr) {
     return (reinterpret_cast<uintptr_t>(ptr) & 0xF) == 0;
 }
@@ -36,14 +32,9 @@ __device__ __forceinline__ bool is_aligned_8(const void* ptr) {
     return (reinterpret_cast<uintptr_t>(ptr) & 0x7) == 0;
 }
 
-// Tiling configuration
-struct TilingConfig {
-    static constexpr int BLOCK_M = 64;  // Q block rows
-    static constexpr int BLOCK_N = 64;  // K/V block rows
-    static constexpr int BLOCK_K = 64;  // Head dimension tile
-    static constexpr int NUM_THREADS = 128;
-    static constexpr int WARP_SIZE = 32;
-};
+// =============================================================================
+// Load tile from global memory to shared memory
+// =============================================================================
 
 // Load a tile from global memory to shared memory (FP32 specialization)
 // Handles boundary conditions when seq_len is not divisible by block size
@@ -194,6 +185,10 @@ __device__ __forceinline__ void load_tile_to_shared(const half* __restrict__ src
     }
 }
 
+// =============================================================================
+// Store tile from shared memory to global memory
+// =============================================================================
+
 // Store a tile from shared memory to global memory (FP32 specialization)
 // Uses float4 vectorized stores when alignment permits
 template<int BLOCK_ROWS, int BLOCK_COLS>
@@ -330,6 +325,10 @@ __device__ __forceinline__ void store_tile_from_shared(const float* __restrict__
     }
 }
 
+// =============================================================================
+// Matmul operations (shared memory tile operations)
+// =============================================================================
+
 // Compute C = A @ B^T where A is MxK and B is NxK
 // Result C is MxN
 // All matrices are in shared memory
@@ -423,4 +422,14 @@ __device__ __forceinline__ void matmul_AtB(const float* __restrict__ A,  // KxM
     }
 }
 
+// Tiling configuration
+struct TilingConfig {
+    static constexpr int BLOCK_M = 64;  // Q block rows
+    static constexpr int BLOCK_N = 64;  // K/V block rows
+    static constexpr int BLOCK_K = 64;  // Head dimension tile
+    static constexpr int NUM_THREADS = 128;
+    static constexpr int WARP_SIZE = 32;
+};
+
+}  // namespace impl
 }  // namespace cuflash

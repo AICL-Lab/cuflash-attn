@@ -37,6 +37,9 @@ set(SOURCES
     src/api/flash_attention_api.cu
     src/forward/flash_attention_forward_typed.cu
     src/backward/flash_attention_backward_typed.cu
+    src/kernels/tile_io.cu
+    src/kernels/matmul.cu
+    src/kernels/online_softmax.cu
 )
 
 # Library
@@ -49,6 +52,7 @@ target_include_directories(cuflash_attn PUBLIC
 # Private include directories for internal kernels
 target_include_directories(cuflash_attn PRIVATE
     ${CMAKE_SOURCE_DIR}/src/kernels
+    ${CMAKE_SOURCE_DIR}/src
 )
 set_target_properties(cuflash_attn PROPERTIES
     POSITION_INDEPENDENT_CODE ON
@@ -140,6 +144,8 @@ if(BUILD_TESTS)
         tests/unit/test_dtype.cu
         tests/unit/test_numerical_stability.cu
         tests/unit/test_stress_edge_cases.cu
+        tests/unit/test_tile_io.cu
+        tests/unit/test_matmul.cu
     )
     target_link_libraries(cuflash_attn_tests PRIVATE cuflash_attn gtest)
     target_compile_options(cuflash_attn_tests PRIVATE
@@ -254,7 +260,7 @@ install(TARGETS cuflash_attn
 
 install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    FILES_MATCHING PATTERN "*.h"
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh"
 )
 
 # Install generated version header

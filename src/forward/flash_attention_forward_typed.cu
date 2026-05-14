@@ -4,8 +4,8 @@
 #include <float.h>
 
 #include "cuflash/flash_attention.h"
+#include "impl/tile_io.cuh"
 #include "kernel_launch_utils.cuh"
-#include "matmul.cuh"
 
 namespace cuflash {
 
@@ -53,7 +53,8 @@ __global__ void __launch_bounds__(128)
     const int num_threads = blockDim.x;
 
     // Load Q tile (handles FP32/FP16 conversion via template overload)
-    load_tile_to_shared<BLOCK_M, HEAD_DIM>(Q_ptr, Q_tile, q_start, 0, seq_len, HEAD_DIM, HEAD_DIM);
+    impl::load_tile_to_shared<BLOCK_M, HEAD_DIM>(Q_ptr, Q_tile, q_start, 0, seq_len, HEAD_DIM,
+                                                 HEAD_DIM);
 
     // Initialize O, m, l
     for (int i = tid; i < BLOCK_M * HEAD_DIM; i += num_threads) {
@@ -75,14 +76,14 @@ __global__ void __launch_bounds__(128)
         }
 
         // Load K and V tiles (handles FP32/FP16 conversion)
-        load_tile_to_shared<BLOCK_N, HEAD_DIM>(K_ptr, K_tile, kv_start, 0, seq_len, HEAD_DIM,
-                                               HEAD_DIM);
-        load_tile_to_shared<BLOCK_N, HEAD_DIM>(V_ptr, V_tile, kv_start, 0, seq_len, HEAD_DIM,
-                                               HEAD_DIM);
+        impl::load_tile_to_shared<BLOCK_N, HEAD_DIM>(K_ptr, K_tile, kv_start, 0, seq_len, HEAD_DIM,
+                                                     HEAD_DIM);
+        impl::load_tile_to_shared<BLOCK_N, HEAD_DIM>(V_ptr, V_tile, kv_start, 0, seq_len, HEAD_DIM,
+                                                     HEAD_DIM);
         __syncthreads();
 
         // Compute S = Q @ K^T * scale
-        matmul_ABt<BLOCK_M, BLOCK_N, HEAD_DIM>(Q_tile, K_tile, S_tile, scale);
+        impl::matmul_ABt<BLOCK_M, BLOCK_N, HEAD_DIM>(Q_tile, K_tile, S_tile, scale);
         __syncthreads();
 
         // Apply causal mask if needed
