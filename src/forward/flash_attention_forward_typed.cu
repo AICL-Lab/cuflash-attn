@@ -4,6 +4,7 @@
 #include <float.h>
 
 #include "cuflash/flash_attention.h"
+#include "impl/online_softmax.cuh"
 #include "impl/tile_io.cuh"
 #include "kernel_launch_utils.cuh"
 
@@ -105,6 +106,7 @@ __global__ void __launch_bounds__(128)
             if (q_start + row >= seq_len)
                 continue;
 
+            // Compute row max for this KV block
             float row_max = -INFINITY;
             for (int j = 0; j < BLOCK_N; j++) {
                 if (kv_start + j < seq_len) {
@@ -112,6 +114,7 @@ __global__ void __launch_bounds__(128)
                 }
             }
 
+            // Compute row sum (exp) and convert scores to probabilities
             float row_sum = 0.0f;
             for (int j = 0; j < BLOCK_N; j++) {
                 if (kv_start + j < seq_len) {
@@ -122,30 +125,31 @@ __global__ void __launch_bounds__(128)
                 }
             }
 
-            // Update online softmax state
-            float m_old = m_tile[row];
-            float l_old = l_tile[row];
-            float m_new = fmaxf(m_old, row_max);
-            float l_new = l_old * expf(m_old - m_new) + row_sum * expf(row_max - m_new);
+            // Update online softmax state using unified algorithm
+            impl::OnlineSoftmaxState state;
+            state.m = m_tile[row];
+            state.l = l_tile[row];
+
+            float rescale_existing, scale_new;
+            state.update_with_rescale(row_max, row_sum, rescale_existing, scale_new);
 
             // Rescale existing O
-            float rescale = expf(m_old - m_new);
             for (int d = 0; d < HEAD_DIM; d++) {
-                O_tile[row * HEAD_DIM + d] *= rescale;
+                O_tile[row * HEAD_DIM + d] *= rescale_existing;
             }
 
             // Add contribution from this block: P @ V
-            float p_scale = expf(row_max - m_new);
             for (int d = 0; d < HEAD_DIM; d++) {
                 float sum = 0.0f;
                 for (int j = 0; j < BLOCK_N; j++) {
                     sum += S_tile[row * BLOCK_N + j] * V_tile[j * HEAD_DIM + d];
                 }
-                O_tile[row * HEAD_DIM + d] += sum * p_scale;
+                O_tile[row * HEAD_DIM + d] += sum * scale_new;
             }
 
-            m_tile[row] = m_new;
-            l_tile[row] = l_new;
+            // Store updated state
+            m_tile[row] = state.m;
+            l_tile[row] = state.l;
         }
         __syncthreads();
     }
@@ -199,10 +203,11 @@ template<>
 FlashAttentionError launch_flash_attention_forward_typed<float>(
     const float* Q, const float* K, const float* V, float* O, float* L, int batch_size,
     int num_heads, int seq_len, int head_dim, float scale, bool causal, cudaStream_t stream) {
-    constexpr int BLOCK_M = 64;
-    constexpr int BLOCK_N = 64;
-    constexpr int BLOCK_M_HD128 = 32;
-    constexpr int BLOCK_N_HD128 = 32;
+    using Config = impl::ForwardTilingConfig;
+    constexpr int BLOCK_M = Config::BLOCK_M;
+    constexpr int BLOCK_N = Config::BLOCK_N;
+    constexpr int BLOCK_M_HD128 = Config::BLOCK_M_HD128;
+    constexpr int BLOCK_N_HD128 = Config::BLOCK_N_HD128;
 
     const int batch_heads = batch_size * num_heads;
     const int num_q_blocks = (seq_len + BLOCK_M - 1) / BLOCK_M;
@@ -271,10 +276,11 @@ template<>
 FlashAttentionError launch_flash_attention_forward_typed<half>(
     const half* Q, const half* K, const half* V, half* O, half* L, int batch_size, int num_heads,
     int seq_len, int head_dim, float scale, bool causal, cudaStream_t stream) {
-    constexpr int BLOCK_M = 64;
-    constexpr int BLOCK_N = 64;
-    constexpr int BLOCK_M_HD128 = 32;
-    constexpr int BLOCK_N_HD128 = 32;
+    using Config = impl::ForwardTilingConfig;
+    constexpr int BLOCK_M = Config::BLOCK_M;
+    constexpr int BLOCK_N = Config::BLOCK_N;
+    constexpr int BLOCK_M_HD128 = Config::BLOCK_M_HD128;
+    constexpr int BLOCK_N_HD128 = Config::BLOCK_N_HD128;
 
     const int batch_heads = batch_size * num_heads;
     const int num_q_blocks = (seq_len + BLOCK_M - 1) / BLOCK_M;

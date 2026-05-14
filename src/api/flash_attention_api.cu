@@ -1,4 +1,5 @@
 #include "cuflash/flash_attention.h"
+#include "impl/tile_io.cuh"  // For is_supported_head_dim
 
 namespace cuflash {
 
@@ -55,8 +56,8 @@ static FlashAttentionError validate_common_params(const void* Q, const void* K, 
         return FlashAttentionError::INVALID_DIMENSION;
     }
 
-    // Check supported head_dim values
-    if (head_dim != 32 && head_dim != 64 && head_dim != 128) {
+    // Check supported head_dim values (centralized check)
+    if (!impl::is_supported_head_dim(head_dim)) {
         return FlashAttentionError::UNSUPPORTED_HEAD_DIM;
     }
 

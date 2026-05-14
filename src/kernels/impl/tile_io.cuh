@@ -422,14 +422,54 @@ __device__ __forceinline__ void matmul_AtB(const float* __restrict__ A,  // KxM
     }
 }
 
-// Tiling configuration
-struct TilingConfig {
+// =============================================================================
+// Tiling Configuration
+// =============================================================================
+// Centralized tiling configuration for FlashAttention kernels.
+// Different configurations for forward and backward passes due to memory
+// constraints in backward pass requiring smaller blocks.
+
+/// Tiling configuration for forward pass.
+/// Uses larger blocks for better memory throughput.
+struct ForwardTilingConfig {
+    // Standard block sizes for head_dim 32 and 64
     static constexpr int BLOCK_M = 64;  // Q block rows
     static constexpr int BLOCK_N = 64;  // K/V block rows
-    static constexpr int BLOCK_K = 64;  // Head dimension tile
+
+    // Smaller blocks for head_dim 128 (shared memory constraint)
+    static constexpr int BLOCK_M_HD128 = 32;
+    static constexpr int BLOCK_N_HD128 = 32;
+
     static constexpr int NUM_THREADS = 128;
     static constexpr int WARP_SIZE = 32;
 };
+
+/// Tiling configuration for backward pass.
+/// Uses smaller blocks to accommodate additional gradient tensors in shared memory.
+struct BackwardTilingConfig {
+    // Standard block sizes for head_dim 32 and 64
+    static constexpr int BLOCK_M = 64;  // Q block rows
+    static constexpr int BLOCK_N = 64;  // K/V block rows
+
+    // Smaller blocks for head_dim 128 (more aggressive due to dQ, dK, dV)
+    static constexpr int BLOCK_M_HD128 = 16;
+    static constexpr int BLOCK_N_HD128 = 32;
+
+    static constexpr int NUM_THREADS = 128;
+    static constexpr int WARP_SIZE = 32;
+};
+
+/// Supported head dimensions - single source of truth.
+/// Used for validation and kernel dispatch.
+inline constexpr int SUPPORTED_HEAD_DIMS[] = {32, 64, 128};
+
+/// Check if a head_dim value is supported.
+inline constexpr bool is_supported_head_dim(int head_dim) {
+    return head_dim == 32 || head_dim == 64 || head_dim == 128;
+}
+
+// Legacy alias for backward compatibility
+using TilingConfig = ForwardTilingConfig;
 
 }  // namespace impl
 }  // namespace cuflash

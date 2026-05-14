@@ -1,5 +1,14 @@
 // Tile I/O Unit Tests
 // Tests for cuflash::kernels::load_tile and store_tile operations
+//
+// NOTE: These tests validate the standalone kernel API for tile I/O operations.
+// The production forward/backward kernels use impl::load_tile_to_shared and
+// impl::store_tile_from_shared directly for better performance (avoiding
+// kernel launch overhead for each tile). The kernels::* API provides a
+// testable interface for the same underlying algorithms.
+//
+// Test coverage: The correctness of impl::* tile functions is validated through
+// end-to-end tests in tests/integration/.
 
 #include <gtest/gtest.h>
 #if CUFLASH_ENABLE_RAPIDCHECK
