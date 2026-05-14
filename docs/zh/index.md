@@ -5,7 +5,7 @@ title: 文档
 hero:
   name: "CuFlash-Attn"
   text: "从零实现的 CUDA FlashAttention"
-  tagline: O(N) 内存复杂度 · FP32/FP16 · 前向与反向 · 教育级 & 生产就绪
+  tagline: 技术白皮书 · O(N) 内存 · FP32/FP16 · 前向与反向
   image:
     src: /hero-logo.svg
     alt: CuFlash-Attn
@@ -15,7 +15,7 @@ hero:
       link: /zh/guide/quick-start
     - theme: alt
       text: 查看源码
-      link: https://github.com/LessUp/cuflash-attn
+      link: https://github.com/AICL-Lab/cuflash-attn
 ---
 
 <style>
@@ -168,7 +168,7 @@ hero:
 ::: code-group
 
 ```bash [克隆 & 构建]
-git clone https://github.com/LessUp/cuflash-attn.git
+git clone https://github.com/AICL-Lab/cuflash-attn.git
 cd cuflash-attn
 
 cmake --preset release

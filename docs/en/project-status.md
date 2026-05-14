@@ -41,5 +41,5 @@ The preferred workflow is:
 - [Building from Source](/en/building)
 - [API Reference](/en/api-reference)
 - [Troubleshooting](/en/troubleshooting)
-- [CHANGELOG.md](https://github.com/LessUp/cuflash-attn/blob/master/CHANGELOG.md)
-- [OpenSpec Specifications](https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs)
+- [CHANGELOG.md](https://github.com/AICL-Lab/cuflash-attn/blob/master/CHANGELOG.md)
+- [OpenSpec Specifications](https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs)

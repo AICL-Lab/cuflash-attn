@@ -14,7 +14,7 @@ Get CuFlash-Attn up and running in minutes.
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/LessUp/cuflash-attn.git
+git clone https://github.com/AICL-Lab/cuflash-attn.git
 cd cuflash-attn
 ```
 

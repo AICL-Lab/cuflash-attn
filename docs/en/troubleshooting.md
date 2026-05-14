@@ -421,4 +421,4 @@ When reporting issues, include:
 - [API Reference](api-reference.md)
 - [Build Guide](building.md)
 - [Algorithm Documentation](algorithm.md)
-- [GitHub Issues](https://github.com/LessUp/cuflash-attn/issues)
+- [GitHub Issues](https://github.com/AICL-Lab/cuflash-attn/issues)

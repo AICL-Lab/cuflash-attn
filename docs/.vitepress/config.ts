@@ -2,6 +2,14 @@ import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import llmstxt from 'vitepress-plugin-llms'
 
+// Dynamic base path for GitHub Pages deployment
+const rawBase = process.env.VITEPRESS_BASE
+const base = rawBase
+  ? rawBase.startsWith('/')
+    ? rawBase.endsWith('/') ? rawBase : `${rawBase}/`
+    : `/${rawBase}/`
+  : '/cuflash-attn/'  // fallback for local dev
+
 const sharedHead = [
   ['meta', { name: 'theme-color', content: '#76B900' }],
   ['meta', { property: 'og:type', content: 'website' }],
@@ -26,8 +34,10 @@ const enNav = [
     text: 'Project',
     items: [
       { text: 'Project Status', link: '/en/project-status' },
-      { text: 'Releases', link: 'https://github.com/LessUp/cuflash-attn/releases' },
-      { text: 'Specs', link: 'https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs' }
+      { text: 'Changelog', link: '/en/release-notes/changelog', activeMatch: '/en/release-notes/' },
+      { text: 'Breaking Changes', link: '/en/release-notes/breaking-changes' },
+      { text: 'Releases', link: 'https://github.com/AICL-Lab/cuflash-attn/releases' },
+      { text: 'Specs', link: 'https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs' }
     ]
   }
 ]
@@ -42,8 +52,10 @@ const zhNav = [
     text: '项目',
     items: [
       { text: '项目状态', link: '/zh/project-status' },
-      { text: '发布版本', link: 'https://github.com/LessUp/cuflash-attn/releases' },
-      { text: '规范文档', link: 'https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs' }
+      { text: '更新日志', link: '/zh/release-notes/changelog', activeMatch: '/zh/release-notes/' },
+      { text: '破坏性变更', link: '/zh/release-notes/breaking-changes' },
+      { text: '发布版本', link: 'https://github.com/AICL-Lab/cuflash-attn/releases' },
+      { text: '规范文档', link: 'https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs' }
     ]
   }
 ]
@@ -60,9 +72,10 @@ const enSidebar = {
       ]
     },
     {
-      text: 'Deep Dive',
+      text: 'Architecture',
       collapsed: false,
       items: [
+        { text: 'System Architecture', link: '/en/architecture' },
         { text: 'Algorithm', link: '/en/algorithm' },
         { text: 'Kernel Deep Dive', link: '/en/design/kernel-deep-dive' },
         { text: 'Design Decisions', link: '/en/design/design-decisions' }
@@ -81,7 +94,8 @@ const enSidebar = {
       collapsed: false,
       items: [
         { text: 'API Reference', link: '/en/api-reference' },
-        { text: 'Troubleshooting', link: '/en/troubleshooting' }
+        { text: 'Troubleshooting', link: '/en/troubleshooting' },
+        { text: 'OpenSpec Specs', link: '/en/specs/' }
       ]
     },
     {
@@ -90,6 +104,14 @@ const enSidebar = {
       items: [
         { text: 'Related Work', link: '/en/research/related-work' },
         { text: 'References', link: '/en/research/references' }
+      ]
+    },
+    {
+      text: 'Release Notes',
+      collapsed: false,
+      items: [
+        { text: 'Changelog', link: '/en/release-notes/changelog' },
+        { text: 'Breaking Changes', link: '/en/release-notes/breaking-changes' }
       ]
     },
     {
@@ -114,9 +136,10 @@ const zhSidebar = {
       ]
     },
     {
-      text: '深入',
+      text: '架构',
       collapsed: false,
       items: [
+        { text: '系统架构', link: '/zh/architecture' },
         { text: '算法详解', link: '/zh/algorithm' },
         { text: 'Kernel 逐行解读', link: '/zh/design/kernel-deep-dive' },
         { text: '设计决策', link: '/zh/design/design-decisions' }
@@ -135,7 +158,8 @@ const zhSidebar = {
       collapsed: false,
       items: [
         { text: 'API 参考', link: '/zh/api-reference' },
-        { text: '故障排除', link: '/zh/troubleshooting' }
+        { text: '故障排除', link: '/zh/troubleshooting' },
+        { text: 'OpenSpec 规范', link: '/zh/specs/' }
       ]
     },
     {
@@ -144,6 +168,14 @@ const zhSidebar = {
       items: [
         { text: '相关工作', link: '/zh/research/related-work' },
         { text: '参考文献', link: '/zh/research/references' }
+      ]
+    },
+    {
+      text: '发布说明',
+      collapsed: false,
+      items: [
+        { text: '更新日志', link: '/zh/release-notes/changelog' },
+        { text: '破坏性变更', link: '/zh/release-notes/breaking-changes' }
       ]
     },
     {
@@ -157,11 +189,11 @@ const zhSidebar = {
 }
 
 export default withMermaid(defineConfig({
+  base,
   title: 'CuFlash-Attn',
   titleTemplate: ':title | CuFlash-Attn',
   description: 'From-scratch CUDA FlashAttention reference implementation',
   lang: 'en-US',
-  base: '/cuflash-attn/',
   head: sharedHead,
 
   locales: {
@@ -175,7 +207,7 @@ export default withMermaid(defineConfig({
         outline: { label: 'On this page' },
         docFooter: { prev: 'Previous', next: 'Next' },
         editLink: {
-          pattern: 'https://github.com/LessUp/cuflash-attn/edit/master/docs/:path',
+          pattern: 'https://github.com/AICL-Lab/cuflash-attn/edit/master/docs/:path',
           text: 'Edit this page on GitHub'
         },
         lastUpdated: { text: 'Last updated' }
@@ -191,7 +223,7 @@ export default withMermaid(defineConfig({
         outline: { label: '本页目录', level: 'deep' },
         docFooter: { prev: '上一页', next: '下一页' },
         editLink: {
-          pattern: 'https://github.com/LessUp/cuflash-attn/edit/master/docs/:path',
+          pattern: 'https://github.com/AICL-Lab/cuflash-attn/edit/master/docs/:path',
           text: '在 GitHub 上编辑此页面'
         },
         lastUpdated: { text: '最后更新' },
@@ -210,14 +242,14 @@ export default withMermaid(defineConfig({
     },
     siteTitle: 'CuFlash-Attn',
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/LessUp/cuflash-attn' }
+      { icon: 'github', link: 'https://github.com/AICL-Lab/cuflash-attn' }
     ],
     footer: {
       message: 'Stable v0.3.0 baseline. OpenSpec-driven CUDA FlashAttention reference.',
-      copyright: 'Copyright 2026 LessUp.'
+      copyright: 'Copyright 2026 AICL-Lab.'
     },
     editLink: {
-      pattern: 'https://github.com/LessUp/cuflash-attn/edit/master/docs/:path',
+      pattern: 'https://github.com/AICL-Lab/cuflash-attn/edit/master/docs/:path',
       text: 'Edit this page on GitHub'
     },
     lastUpdated: {

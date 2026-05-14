@@ -5,7 +5,7 @@ title: Documentation
 hero:
   name: "CuFlash-Attn"
   text: "From-Scratch CUDA FlashAttention"
-  tagline: O(N) memory complexity · FP32/FP16 · Forward & Backward · Educational & Production-Ready
+  tagline: Technical Whitepaper · O(N) Memory · FP32/FP16 · Forward & Backward
   image:
     src: /hero-logo.svg
     alt: CuFlash-Attn
@@ -15,7 +15,7 @@ hero:
       link: /en/guide/quick-start
     - theme: alt
       text: View on GitHub
-      link: https://github.com/LessUp/cuflash-attn
+      link: https://github.com/AICL-Lab/cuflash-attn
 ---
 
 <script setup>
@@ -378,7 +378,7 @@ Build and run in under 5 minutes:
 ::: code-group
 
 ```bash [Clone & Build]
-git clone https://github.com/LessUp/cuflash-attn.git
+git clone https://github.com/AICL-Lab/cuflash-attn.git
 cd cuflash-attn
 
 cmake --preset release

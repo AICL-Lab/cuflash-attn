@@ -6,7 +6,7 @@
 
 ## Repo
 
-`LessUp/cuflash-attn`
+`AICL-Lab/cuflash-attn`
 
 ## How Skills Interact
 

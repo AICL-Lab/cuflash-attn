@@ -13,7 +13,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/LessUp/cuflash-attn.git
+git clone https://github.com/AICL-Lab/cuflash-attn.git
 cd cuflash-attn
 
 # 使用 CMake 预设构建

@@ -8,11 +8,19 @@ description: From-scratch CUDA FlashAttention reference implementation
 import { onMounted } from 'vue'
 
 onMounted(() => {
+  // Auto-detect browser language and redirect
+  const lang = navigator.language || navigator.userLanguage
   const preferred = localStorage.getItem('preferred-lang')
+  
+  // Prefer saved preference, then browser language
   if (preferred === 'en') {
     window.location.href = '/cuflash-attn/en/'
   } else if (preferred === 'zh') {
     window.location.href = '/cuflash-attn/zh/'
+  } else if (lang && lang.toLowerCase().startsWith('zh')) {
+    window.location.href = '/cuflash-attn/zh/'
+  } else {
+    window.location.href = '/cuflash-attn/en/'
   }
 })
 
@@ -107,19 +115,19 @@ function setLanguage(lang) {
 <div class="links-section">
   <h3>Quick Links</h3>
   <div class="quick-links">
-    <a href="https://github.com/LessUp/cuflash-attn" class="quick-link">
+    <a href="https://github.com/AICL-Lab/cuflash-attn" class="quick-link">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.69 0 0 .84-.27 2.75 1.02A9.32 9.32 0 0112 6.8c.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.4.2 2.44.1 2.69.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85v2.73c0 .27.16.58.66.5A10.008 10.008 0 0022 12c0-5.523-4.477-10-10-10z"/>
       </svg>
       <span>GitHub</span>
     </a>
-    <a href="https://github.com/LessUp/cuflash-attn/releases" class="quick-link">
+    <a href="https://github.com/AICL-Lab/cuflash-attn/releases" class="quick-link">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <path d="M7 18h2v-2H7v2zm4 0h2v-2h-2v2zm4 0h2v-2h-2v2zM7 14h2v-2H7v2zm4 0h2v-2h-2v2zm4 0h2v-2h-2v2zM7 10h2V8H7v2zm4 0h2V8h-2v2zm4 0h2V8h-2v2zM5 22h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2zM5 4h14v16H5V4z"/>
       </svg>
       <span>Releases</span>
     </a>
-    <a href="https://github.com/LessUp/cuflash-attn/tree/master/openspec/specs" class="quick-link">
+    <a href="https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs" class="quick-link">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
       </svg>

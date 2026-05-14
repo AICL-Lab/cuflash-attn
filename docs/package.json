@@ -5,8 +5,9 @@
   "type": "module",
   "description": "Academic-grade documentation for CuFlash-Attn",
   "scripts": {
-    "docs:dev": "vitepress dev",
-    "docs:build": "vitepress build",
+    "sync": "node scripts/sync-changelog.mjs",
+    "docs:dev": "npm run sync && vitepress dev",
+    "docs:build": "npm run sync && vitepress build",
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {

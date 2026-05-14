@@ -1,5 +1,7 @@
 # Changelog
 
+This page documents the changes in each CuFlash-Attn release.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
@@ -13,7 +15,7 @@ Stabilization and governance cleanup after `v0.3.0`.
 
 ---
 
-## [0.3.0] - 2026-04-24
+## 0.3.0 (2026-04-24)
 
 ### 🔧 Chore | 工程整治
 
@@ -43,7 +45,7 @@ Stabilization and governance cleanup after `v0.3.0`.
 
 ---
 
-## [0.2.0] - 2026-04-16
+## 0.2.0 (2026-04-16)
 
 ### 🚀 Highlights | 亮点
 
@@ -120,7 +122,7 @@ This release introduces complete FP16 backward pass support and a thoroughly res
 
 ---
 
-## [0.1.0] - 2026-03-13
+## 0.1.0 (2026-03-13)
 
 ### ✨ Added | 新增
 
@@ -145,7 +147,7 @@ This release introduces complete FP16 backward pass support and a thoroughly res
 
 ---
 
-## [0.1.0-alpha.2] - 2026-03-10
+## 0.1.0-alpha.2 (2026-03-10)
 
 ### ✨ Added | 新增
 
@@ -159,7 +161,7 @@ This release introduces complete FP16 backward pass support and a thoroughly res
 
 ---
 
-## [0.1.0-alpha.1] - 2026-02-13
+## 0.1.0-alpha.1 (2026-02-13)
 
 ### ✨ Added | 新增
 

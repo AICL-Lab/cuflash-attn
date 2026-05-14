@@ -47,7 +47,7 @@ g++ --version
 
 ```bash
 # Clone the repository
-git clone https://github.com/LessUp/cuflash-attn.git
+git clone https://github.com/AICL-Lab/cuflash-attn.git
 cd cuflash-attn
 
 # Build using preset (recommended)
