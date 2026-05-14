@@ -421,20 +421,57 @@
   font-weight: 600;
 }
 
+/* Light mode code blocks */
 .vp-doc pre {
-  background: #0d1117 !important;
-  border: 1px solid #222;
+  background: var(--vp-c-bg-alt) !important;
+  border: 1px solid var(--vp-c-border);
   border-radius: var(--radius-md);
   box-shadow: none;
 }
 
+/* Dark mode code blocks */
+.dark .vp-doc pre {
+  background: #0d1117 !important;
+  border: 1px solid #222;
+}
+
+/* Light mode: ensure code text is readable */
+.vp-doc pre code {
+  color: var(--vp-c-text-1);
+}
+
+/* Dark mode: Shiki handles syntax highlighting colors automatically */
+
 .vp-doc .line-numbers-wrapper {
   background: transparent;
-  border-right: 1px solid #222;
+  border-right: 1px solid var(--vp-c-border);
+}
+
+.dark .vp-doc .line-numbers-wrapper {
+  border-right-color: #222;
 }
 
 .vp-doc .line-numbers-wrapper .line-number {
+  color: var(--vp-c-text-3);
+}
+
+.dark .vp-doc .line-numbers-wrapper .line-number {
   color: #555;
+}
+
+/* Code group tabs */
+.vp-doc .code-group .tabs {
+  background: var(--vp-c-bg-soft);
+  border-bottom: 1px solid var(--vp-c-border);
+}
+
+.vp-doc .code-group .tabs label {
+  color: var(--vp-c-text-2);
+}
+
+.vp-doc .code-group .tabs label.active {
+  color: var(--vp-c-brand-1);
+  border-bottom-color: var(--vp-c-brand-1);
 }
 
 /* === Custom Blocks === */
