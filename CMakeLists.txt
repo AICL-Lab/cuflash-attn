@@ -32,13 +32,11 @@ option(ENABLE_FAST_MATH "Enable --use_fast_math (faster but less precise)" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer (debug builds only)" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (debug builds only)" OFF)
 
-# Source files
+# Source files - unified FP32/FP16 templates
 set(SOURCES
     src/api/flash_attention_api.cu
-    src/forward/flash_attention_forward.cu
-    src/forward/flash_attention_fp16.cu
-    src/backward/flash_attention_backward.cu
-    src/backward/flash_attention_backward_fp16.cu
+    src/forward/flash_attention_forward_typed.cu
+    src/backward/flash_attention_backward_typed.cu
 )
 
 # Library
