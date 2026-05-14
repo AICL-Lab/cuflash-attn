@@ -37,6 +37,25 @@ struct OnlineSoftmaxState {
 
     /// Get the normalization factor for final output
     __device__ __forceinline__ float get_normalizer() const { return 1.0f / l; }
+
+    /// Update from local block statistics and return the rescale factor for existing O.
+    /// This combines update() with computing the necessary scaling for output accumulation.
+    /// @param new_m max value in the new block
+    /// @param new_l sum of exp(x - new_m) in the new block
+    /// @param rescale_existing output: factor to multiply existing O by
+    /// @param scale_new output: factor to multiply new P@V by
+    __device__ __forceinline__ void update_with_rescale(float new_m, float new_l,
+                                                        float& rescale_existing, float& scale_new) {
+        float m_old = m;
+        float l_old = l;
+        float m_new = fmaxf(m_old, new_m);
+        l = l_old * expf(m_old - m_new) + new_l * expf(new_m - m_new);
+        m = m_new;
+
+        // Compute rescaling factors
+        rescale_existing = expf(m_old - m_new);  // For existing O
+        scale_new = expf(new_m - m_new);         // For new P @ V contribution
+    }
 };
 
 // =============================================================================

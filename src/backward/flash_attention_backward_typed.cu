@@ -4,6 +4,7 @@
 #include <float.h>
 
 #include "cuflash/flash_attention.h"
+#include "impl/online_softmax.cuh"
 #include "impl/tile_io.cuh"
 #include "kernel_launch_utils.cuh"
 #include "workspace_utils.cuh"
@@ -371,10 +372,11 @@ FlashAttentionError launch_flash_attention_backward_typed<float>(
     const float* Q, const float* K, const float* V, const float* O, const float* L, const float* dO,
     float* dQ, float* dK, float* dV, int batch_size, int num_heads, int seq_len, int head_dim,
     float scale, bool causal, cudaStream_t stream) {
-    constexpr int BLOCK_M = 64;
-    constexpr int BLOCK_N = 64;
-    constexpr int BLOCK_M_HD128 = 16;
-    constexpr int BLOCK_N_HD128 = 32;
+    using Config = impl::BackwardTilingConfig;
+    constexpr int BLOCK_M = Config::BLOCK_M;
+    constexpr int BLOCK_N = Config::BLOCK_N;
+    constexpr int BLOCK_M_HD128 = Config::BLOCK_M_HD128;
+    constexpr int BLOCK_N_HD128 = Config::BLOCK_N_HD128;
 
     int batch_heads = batch_size * num_heads;
 
@@ -526,10 +528,11 @@ FlashAttentionError launch_flash_attention_backward_typed<half>(
     const half* Q, const half* K, const half* V, const half* O, const half* L, const half* dO,
     half* dQ, half* dK, half* dV, int batch_size, int num_heads, int seq_len, int head_dim,
     float scale, bool causal, cudaStream_t stream) {
-    constexpr int BLOCK_M = 64;
-    constexpr int BLOCK_N = 64;
-    constexpr int BLOCK_M_HD128 = 16;
-    constexpr int BLOCK_N_HD128 = 32;
+    using Config = impl::BackwardTilingConfig;
+    constexpr int BLOCK_M = Config::BLOCK_M;
+    constexpr int BLOCK_N = Config::BLOCK_N;
+    constexpr int BLOCK_M_HD128 = Config::BLOCK_M_HD128;
+    constexpr int BLOCK_N_HD128 = Config::BLOCK_N_HD128;
 
     int batch_heads = batch_size * num_heads;
 

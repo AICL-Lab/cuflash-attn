@@ -1,5 +1,13 @@
 // Matmul Unit Tests
 // Tests for cuflash::kernels::matmul_* operations
+//
+// NOTE: These tests validate the standalone kernel API for matmul operations.
+// The production forward/backward kernels use impl::matmul_* directly in
+// shared memory for better performance. The kernels::matmul_* API provides
+// a testable interface for the same underlying algorithms.
+//
+// Test coverage: The numerical correctness of impl::matmul_* is indirectly
+// validated through the end-to-end tests in tests/integration/.
 
 #include <gtest/gtest.h>
 #if CUFLASH_ENABLE_RAPIDCHECK
