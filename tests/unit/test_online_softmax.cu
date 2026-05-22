@@ -150,6 +150,48 @@ TEST_F(OnlineSoftmaxTest, Forward_LargeInput) {
     cudaFree(d_logsumexp);
 }
 
+TEST_F(OnlineSoftmaxTest, Forward_MultiBlockCrossWarpMatchesReference) {
+    constexpr int ROWS = 3;
+    constexpr int COLS = 96;
+
+    std::vector<float> h_input(ROWS * COLS);
+    std::mt19937 gen(7);
+    std::uniform_real_distribution<float> dist(-8.0f, 8.0f);
+    for (auto& v : h_input) {
+        v = dist(gen);
+    }
+
+    auto h_output_expected = reference_softmax(h_input, ROWS, COLS);
+    auto h_logsumexp_expected = reference_logsumexp(h_input, ROWS, COLS);
+
+    float *d_input, *d_output, *d_logsumexp;
+    cudaMalloc(&d_input, ROWS * COLS * sizeof(float));
+    cudaMalloc(&d_output, ROWS * COLS * sizeof(float));
+    cudaMalloc(&d_logsumexp, ROWS * sizeof(float));
+    cudaMemcpy(d_input, h_input.data(), ROWS * COLS * sizeof(float), cudaMemcpyHostToDevice);
+
+    FlashAttentionError err =
+        kernels::online_softmax_forward(d_input, d_output, d_logsumexp, ROWS, COLS, 64, stream);
+    ASSERT_EQ(err, FlashAttentionError::SUCCESS);
+
+    std::vector<float> h_output(ROWS * COLS), h_logsumexp(ROWS);
+    cudaMemcpy(h_output.data(), d_output, ROWS * COLS * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_logsumexp.data(), d_logsumexp, ROWS * sizeof(float), cudaMemcpyDeviceToHost);
+
+    for (size_t i = 0; i < h_output.size(); i++) {
+        EXPECT_NEAR(h_output[i], h_output_expected[i], 1e-4f) << "Softmax mismatch at index " << i;
+    }
+
+    for (int r = 0; r < ROWS; r++) {
+        EXPECT_NEAR(h_logsumexp[r], h_logsumexp_expected[r], 1e-4f)
+            << "Logsumexp mismatch at row " << r;
+    }
+
+    cudaFree(d_input);
+    cudaFree(d_output);
+    cudaFree(d_logsumexp);
+}
+
 TEST_F(OnlineSoftmaxTest, Forward_NumericalStability) {
     // Test with large values that would cause overflow in naive implementation
     constexpr int ROWS = 2;
@@ -299,6 +341,21 @@ TEST_F(OnlineSoftmaxTest, InvalidDimensionReturnsError) {
     EXPECT_EQ(err, FlashAttentionError::INVALID_DIMENSION);
 
     cudaFree(d_valid);
+}
+
+TEST_F(OnlineSoftmaxTest, FinalizeNullNormalizerReturnsError) {
+    float *d_state_m, *d_state_l, *d_logsumexp;
+    cudaMalloc(&d_state_m, 4 * sizeof(float));
+    cudaMalloc(&d_state_l, 4 * sizeof(float));
+    cudaMalloc(&d_logsumexp, 4 * sizeof(float));
+
+    FlashAttentionError err =
+        kernels::online_softmax_finalize(d_state_m, d_state_l, d_logsumexp, nullptr, 4, stream);
+    EXPECT_EQ(err, FlashAttentionError::NULL_POINTER);
+
+    cudaFree(d_state_m);
+    cudaFree(d_state_l);
+    cudaFree(d_logsumexp);
 }
 
 // =============================================================================
