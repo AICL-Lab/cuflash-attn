@@ -3,6 +3,7 @@
 
 #include "cuflash/kernels/online_softmax.cuh"
 #include "impl/online_softmax.cuh"
+#include "primitive_api_utils.cuh"
 
 namespace cuflash {
 namespace kernels {
@@ -79,10 +80,14 @@ __global__ void online_softmax_forward_kernel(const float* __restrict__ input,
 
     // Use shared memory for reductions
     float* reduce_smem = smem;
+    float* state_smem = reduce_smem + SOFTMAX_THREADS / 32;
 
     // Process blocks
-    impl::OnlineSoftmaxState state;
-    state.init();
+    if (threadIdx.x == 0) {
+        state_smem[0] = -INFINITY;
+        state_smem[1] = 0.0f;
+    }
+    __syncthreads();
 
     const float* row_input = input + row * cols;
     float* row_output = output + row * cols;
@@ -104,8 +109,6 @@ __global__ void online_softmax_forward_kernel(const float* __restrict__ input,
             block_max = fmaxf(block_max, val);
         }
 
-        block_max = impl::block_reduce_sum<SOFTMAX_THREADS>(block_max, reduce_smem);
-        // Actually need max reduction - reuse shared memory
         block_max = impl::block_reduce_max<SOFTMAX_THREADS>(block_max, reduce_smem);
 
         // Compute exp sum
@@ -117,13 +120,18 @@ __global__ void online_softmax_forward_kernel(const float* __restrict__ input,
 
         // Update state
         if (threadIdx.x == 0) {
+            impl::OnlineSoftmaxState state;
+            state.m = state_smem[0];
+            state.l = state_smem[1];
             state.update(block_max, block_sum);
+            state_smem[0] = state.m;
+            state_smem[1] = state.l;
         }
         __syncthreads();
     }
 
     // Final normalization
-    float l_inv = state.get_normalizer();
+    float l_inv = 1.0f / state_smem[1];
 
     for (int b = 0; b < num_blocks; b++) {
         int start = b * BLOCK_SIZE;
@@ -139,7 +147,7 @@ __global__ void online_softmax_forward_kernel(const float* __restrict__ input,
         block_max = impl::block_reduce_max<SOFTMAX_THREADS>(block_max, reduce_smem);
 
         // Compute and store output
-        float rescale = expf(block_max - state.m);
+        float rescale = expf(block_max - state_smem[0]);
         for (int i = threadIdx.x; i < block_len; i += blockDim.x) {
             float val = row_input[start + i];
             row_output[start + i] = expf(val - block_max) * rescale * l_inv;
@@ -148,7 +156,7 @@ __global__ void online_softmax_forward_kernel(const float* __restrict__ input,
 
     // Store logsumexp
     if (threadIdx.x == 0) {
-        logsumexp[row] = state.logsumexp();
+        logsumexp[row] = state_smem[0] + logf(state_smem[1]);
     }
 }
 
@@ -156,84 +164,70 @@ __global__ void online_softmax_forward_kernel(const float* __restrict__ input,
 // Host Entry Points
 // =============================================================================
 
-// Validation helper
-static FlashAttentionError validate_online_softmax_params(const float* ptr, int rows) {
-    if (!ptr) {
-        return FlashAttentionError::NULL_POINTER;
-    }
-    if (rows <= 0) {
-        return FlashAttentionError::INVALID_DIMENSION;
-    }
-    return FlashAttentionError::SUCCESS;
-}
-
 // Init
 FlashAttentionError online_softmax_init(float* state_m, float* state_l, int rows,
                                         cudaStream_t stream) {
-    FlashAttentionError err = validate_online_softmax_params(state_m, rows);
+    FlashAttentionError err = detail::validate_non_null({state_m, state_l});
     if (err != FlashAttentionError::SUCCESS)
         return err;
-    if (!state_l)
-        return FlashAttentionError::NULL_POINTER;
+    err = detail::validate_positive_dimensions({rows});
+    if (err != FlashAttentionError::SUCCESS)
+        return err;
 
     int blocks = (rows + SOFTMAX_THREADS - 1) / SOFTMAX_THREADS;
     online_softmax_init_kernel<<<blocks, SOFTMAX_THREADS, 0, stream>>>(state_m, state_l, rows);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    return (cuda_err == cudaSuccess) ? FlashAttentionError::SUCCESS
-                                     : FlashAttentionError::CUDA_ERROR;
+    return detail::finish_kernel_launch();
 }
 
 // Update
 FlashAttentionError online_softmax_update(const float* block_max, const float* block_sum,
                                           float* state_m, float* state_l, int rows,
                                           cudaStream_t stream) {
-    FlashAttentionError err = validate_online_softmax_params(block_max, rows);
+    FlashAttentionError err = detail::validate_non_null({block_max, block_sum, state_m, state_l});
     if (err != FlashAttentionError::SUCCESS)
         return err;
-    if (!block_sum || !state_m || !state_l)
-        return FlashAttentionError::NULL_POINTER;
+    err = detail::validate_positive_dimensions({rows});
+    if (err != FlashAttentionError::SUCCESS)
+        return err;
 
     int blocks = (rows + SOFTMAX_THREADS - 1) / SOFTMAX_THREADS;
     online_softmax_update_kernel<<<blocks, SOFTMAX_THREADS, 0, stream>>>(block_max, block_sum,
                                                                          state_m, state_l, rows);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    return (cuda_err == cudaSuccess) ? FlashAttentionError::SUCCESS
-                                     : FlashAttentionError::CUDA_ERROR;
+    return detail::finish_kernel_launch();
 }
 
 // Finalize
 FlashAttentionError online_softmax_finalize(const float* state_m, const float* state_l,
                                             float* logsumexp, float* normalizer, int rows,
                                             cudaStream_t stream) {
-    FlashAttentionError err = validate_online_softmax_params(state_m, rows);
+    FlashAttentionError err = detail::validate_non_null({state_m, state_l, logsumexp, normalizer});
     if (err != FlashAttentionError::SUCCESS)
         return err;
-    if (!state_l || !logsumexp)
-        return FlashAttentionError::NULL_POINTER;
+    err = detail::validate_positive_dimensions({rows});
+    if (err != FlashAttentionError::SUCCESS)
+        return err;
 
     int blocks = (rows + SOFTMAX_THREADS - 1) / SOFTMAX_THREADS;
     online_softmax_finalize_kernel<<<blocks, SOFTMAX_THREADS, 0, stream>>>(
         state_m, state_l, logsumexp, normalizer, rows);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    return (cuda_err == cudaSuccess) ? FlashAttentionError::SUCCESS
-                                     : FlashAttentionError::CUDA_ERROR;
+    return detail::finish_kernel_launch();
 }
 
 // Forward (convenience)
 FlashAttentionError online_softmax_forward(const float* input, float* output, float* logsumexp,
                                            int rows, int cols, int block_size,
                                            cudaStream_t stream) {
-    if (!input || !output || !logsumexp) {
-        return FlashAttentionError::NULL_POINTER;
-    }
-    if (rows <= 0 || cols <= 0 || block_size <= 0) {
-        return FlashAttentionError::INVALID_DIMENSION;
-    }
+    FlashAttentionError err = detail::validate_non_null({input, output, logsumexp});
+    if (err != FlashAttentionError::SUCCESS)
+        return err;
+    err = detail::validate_positive_dimensions({rows, cols, block_size});
+    if (err != FlashAttentionError::SUCCESS)
+        return err;
 
-    size_t smem_size = SOFTMAX_THREADS / 32 * sizeof(float);
+    size_t smem_size = (SOFTMAX_THREADS / 32 + 2) * sizeof(float);
 
     // Dispatch based on block size
     if (block_size <= 32) {
@@ -247,9 +241,7 @@ FlashAttentionError online_softmax_forward(const float* input, float* output, fl
             <<<rows, SOFTMAX_THREADS, smem_size, stream>>>(input, output, logsumexp, rows, cols);
     }
 
-    cudaError_t cuda_err = cudaGetLastError();
-    return (cuda_err == cudaSuccess) ? FlashAttentionError::SUCCESS
-                                     : FlashAttentionError::CUDA_ERROR;
+    return detail::finish_kernel_launch();
 }
 
 // Explicit template instantiations

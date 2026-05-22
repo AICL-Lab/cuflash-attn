@@ -120,9 +120,12 @@ __device__ __forceinline__ float block_reduce_max(float val, float* shared) {
         for (int offset = 16; offset > 0; offset /= 2) {
             val = fmaxf(val, __shfl_xor_sync(0xffffffff, val, offset));
         }
+        if (lane == 0) {
+            shared[0] = val;
+        }
     }
-
-    return val;
+    __syncthreads();
+    return shared[0];
 }
 
 /// Block-level sum reduction using shared memory.
@@ -147,9 +150,12 @@ __device__ __forceinline__ float block_reduce_sum(float val, float* shared) {
         for (int offset = 16; offset > 0; offset /= 2) {
             val += __shfl_xor_sync(0xffffffff, val, offset);
         }
+        if (lane == 0) {
+            shared[0] = val;
+        }
     }
-
-    return val;
+    __syncthreads();
+    return shared[0];
 }
 
 }  // namespace impl

@@ -28,7 +28,8 @@ __global__ void __launch_bounds__(128)
     float sum = 0.0f;
 #pragma unroll
     for (int d = 0; d < HEAD_DIM; d++) {
-        sum += impl::to_float(dO_row[d]) * impl::to_float(O_row[d]);
+        sum += impl::TypeAdapter<InputT>::to_compute(dO_row[d]) *
+               impl::TypeAdapter<InputT>::to_compute(O_row[d]);
     }
 
     D[batch_head_idx * seq_len + row_idx] = sum;
@@ -81,7 +82,9 @@ __global__ void __launch_bounds__(128)
     }
     for (int i = tid; i < BLOCK_M; i += num_threads) {
         int global_idx = q_start + i;
-        L_tile[i] = (global_idx < seq_len) ? impl::to_float(L_ptr[global_idx]) : 0.0f;
+        L_tile[i] = (global_idx < seq_len)
+                        ? impl::TypeAdapter<InputT>::to_compute(L_ptr[global_idx])
+                        : 0.0f;
         D_tile[i] = (global_idx < seq_len) ? D_ptr[global_idx] : 0.0f;
     }
     __syncthreads();
@@ -205,7 +208,9 @@ __global__ void __launch_bounds__(128)
 
         for (int i = tid; i < BLOCK_M; i += num_threads) {
             int global_idx = q_start + i;
-            L_tile[i] = (global_idx < seq_len) ? impl::to_float(L_ptr[global_idx]) : 0.0f;
+            L_tile[i] = (global_idx < seq_len)
+                            ? impl::TypeAdapter<InputT>::to_compute(L_ptr[global_idx])
+                            : 0.0f;
             D_tile[i] = (global_idx < seq_len) ? D_ptr[global_idx] : 0.0f;
         }
         __syncthreads();

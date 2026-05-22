@@ -3,6 +3,7 @@
 
 #include "cuflash/kernels/matmul.cuh"
 #include "impl/tile_io.cuh"
+#include "primitive_api_utils.cuh"
 
 namespace cuflash {
 namespace kernels {
@@ -149,88 +150,84 @@ __global__ void matmul_AtB_kernel(const float* __restrict__ A, const float* __re
 // Host Entry Points
 // =============================================================================
 
-// Validation helper
-static FlashAttentionError validate_matmul_params(const float* A, const float* B, const float* C) {
-    if (!A || !B || !C) {
-        return FlashAttentionError::NULL_POINTER;
-    }
-    return FlashAttentionError::SUCCESS;
-}
-
 // C = A @ B^T
 template<int M, int N, int K>
 FlashAttentionError matmul_ABt(const float* A, const float* B, float* C, float scale,
                                cudaStream_t stream) {
-    FlashAttentionError err = validate_matmul_params(A, B, C);
+    FlashAttentionError err = detail::validate_non_null({A, B, C});
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
 
     size_t smem_size = (M * K + N * K + M * N) * sizeof(float);
+    FlashAttentionError status =
+        detail::prepare_kernel_launch(matmul_ABt_kernel<M, N, K>, smem_size);
+    if (status != FlashAttentionError::SUCCESS) {
+        return status;
+    }
     matmul_ABt_kernel<M, N, K><<<1, MATMUL_THREADS, smem_size, stream>>>(A, B, C, scale);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // C = A @ B
 template<int M, int N, int K>
 FlashAttentionError matmul_AB(const float* A, const float* B, float* C, float scale,
                               cudaStream_t stream) {
-    FlashAttentionError err = validate_matmul_params(A, B, C);
+    FlashAttentionError err = detail::validate_non_null({A, B, C});
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
 
     size_t smem_size = (M * K + K * N + M * N) * sizeof(float);
+    FlashAttentionError status =
+        detail::prepare_kernel_launch(matmul_AB_kernel<M, N, K>, smem_size);
+    if (status != FlashAttentionError::SUCCESS) {
+        return status;
+    }
     matmul_AB_kernel<M, N, K><<<1, MATMUL_THREADS, smem_size, stream>>>(A, B, C, scale);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // C += A @ B
 template<int M, int N, int K>
 FlashAttentionError matmul_AB_acc(const float* A, const float* B, float* C, float scale,
                                   cudaStream_t stream) {
-    FlashAttentionError err = validate_matmul_params(A, B, C);
+    FlashAttentionError err = detail::validate_non_null({A, B, C});
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
 
     size_t smem_size = (M * K + K * N + M * N) * sizeof(float);
+    FlashAttentionError status =
+        detail::prepare_kernel_launch(matmul_AB_acc_kernel<M, N, K>, smem_size);
+    if (status != FlashAttentionError::SUCCESS) {
+        return status;
+    }
     matmul_AB_acc_kernel<M, N, K><<<1, MATMUL_THREADS, smem_size, stream>>>(A, B, C, scale);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // C = A^T @ B
 template<int M, int N, int K>
 FlashAttentionError matmul_AtB(const float* A, const float* B, float* C, float scale,
                                cudaStream_t stream) {
-    FlashAttentionError err = validate_matmul_params(A, B, C);
+    FlashAttentionError err = detail::validate_non_null({A, B, C});
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
 
     size_t smem_size = (K * M + K * N + M * N) * sizeof(float);
+    FlashAttentionError status =
+        detail::prepare_kernel_launch(matmul_AtB_kernel<M, N, K>, smem_size);
+    if (status != FlashAttentionError::SUCCESS) {
+        return status;
+    }
     matmul_AtB_kernel<M, N, K><<<1, MATMUL_THREADS, smem_size, stream>>>(A, B, C, scale);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // =============================================================================

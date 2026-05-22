@@ -3,6 +3,7 @@
 
 #include "cuflash/kernels/tile_io.cuh"
 #include "impl/tile_io.cuh"
+#include "primitive_api_utils.cuh"
 
 namespace cuflash {
 namespace kernels {
@@ -107,31 +108,16 @@ __global__ void load_store_roundtrip_kernel(const float* __restrict__ src, float
 // Host Entry Points
 // =============================================================================
 
-// Common validation
-static FlashAttentionError validate_tile_params(int row_start, int col_start, int max_rows,
-                                                int max_cols, int stride) {
-    if (max_rows <= 0 || max_cols <= 0 || stride <= 0) {
-        return FlashAttentionError::INVALID_DIMENSION;
-    }
-    if (row_start < 0 || col_start < 0) {
-        return FlashAttentionError::INVALID_DIMENSION;
-    }
-    if (row_start >= max_rows || col_start >= max_cols) {
-        return FlashAttentionError::INVALID_DIMENSION;
-    }
-    return FlashAttentionError::SUCCESS;
-}
-
 // FP32 Load
 template<int BLOCK_ROWS, int BLOCK_COLS>
 FlashAttentionError load_tile(const float* src, float* dst, int row_start, int col_start,
                               int max_rows, int max_cols, int src_stride, cudaStream_t stream) {
-    if (!src || !dst) {
-        return FlashAttentionError::NULL_POINTER;
+    FlashAttentionError err = detail::validate_non_null({src, dst});
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
     }
 
-    FlashAttentionError err =
-        validate_tile_params(row_start, col_start, max_rows, max_cols, src_stride);
+    err = detail::validate_tile_window(row_start, col_start, max_rows, max_cols, src_stride);
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
@@ -140,23 +126,19 @@ FlashAttentionError load_tile(const float* src, float* dst, int row_start, int c
     load_tile_kernel_fp32<BLOCK_ROWS, BLOCK_COLS><<<1, 128, smem_size, stream>>>(
         src, dst, row_start, col_start, max_rows, max_cols, src_stride);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // FP16 Load
 template<int BLOCK_ROWS, int BLOCK_COLS>
 FlashAttentionError load_tile(const half* src, float* dst, int row_start, int col_start,
                               int max_rows, int max_cols, int src_stride, cudaStream_t stream) {
-    if (!src || !dst) {
-        return FlashAttentionError::NULL_POINTER;
+    FlashAttentionError err = detail::validate_non_null({src, dst});
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
     }
 
-    FlashAttentionError err =
-        validate_tile_params(row_start, col_start, max_rows, max_cols, src_stride);
+    err = detail::validate_tile_window(row_start, col_start, max_rows, max_cols, src_stride);
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
@@ -165,23 +147,19 @@ FlashAttentionError load_tile(const half* src, float* dst, int row_start, int co
     load_tile_kernel_fp16<BLOCK_ROWS, BLOCK_COLS><<<1, 128, smem_size, stream>>>(
         src, dst, row_start, col_start, max_rows, max_cols, src_stride);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // FP32 Store
 template<int BLOCK_ROWS, int BLOCK_COLS>
 FlashAttentionError store_tile(const float* src, float* dst, int row_start, int col_start,
                                int max_rows, int max_cols, int dst_stride, cudaStream_t stream) {
-    if (!src || !dst) {
-        return FlashAttentionError::NULL_POINTER;
+    FlashAttentionError err = detail::validate_non_null({src, dst});
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
     }
 
-    FlashAttentionError err =
-        validate_tile_params(row_start, col_start, max_rows, max_cols, dst_stride);
+    err = detail::validate_tile_window(row_start, col_start, max_rows, max_cols, dst_stride);
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
@@ -190,23 +168,19 @@ FlashAttentionError store_tile(const float* src, float* dst, int row_start, int 
     store_tile_kernel_fp32<BLOCK_ROWS, BLOCK_COLS><<<1, 128, smem_size, stream>>>(
         src, dst, row_start, col_start, max_rows, max_cols, dst_stride);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // FP16 Store
 template<int BLOCK_ROWS, int BLOCK_COLS>
 FlashAttentionError store_tile(const float* src, half* dst, int row_start, int col_start,
                                int max_rows, int max_cols, int dst_stride, cudaStream_t stream) {
-    if (!src || !dst) {
-        return FlashAttentionError::NULL_POINTER;
+    FlashAttentionError err = detail::validate_non_null({src, dst});
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
     }
 
-    FlashAttentionError err =
-        validate_tile_params(row_start, col_start, max_rows, max_cols, dst_stride);
+    err = detail::validate_tile_window(row_start, col_start, max_rows, max_cols, dst_stride);
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
@@ -215,11 +189,7 @@ FlashAttentionError store_tile(const float* src, half* dst, int row_start, int c
     store_tile_kernel_fp16<BLOCK_ROWS, BLOCK_COLS><<<1, 128, smem_size, stream>>>(
         src, dst, row_start, col_start, max_rows, max_cols, dst_stride);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // Round-trip
@@ -227,12 +197,12 @@ template<int BLOCK_ROWS, int BLOCK_COLS>
 FlashAttentionError load_store_tile_roundtrip(const float* src, float* dst, int row_start,
                                               int col_start, int max_rows, int max_cols, int stride,
                                               cudaStream_t stream) {
-    if (!src || !dst) {
-        return FlashAttentionError::NULL_POINTER;
+    FlashAttentionError err = detail::validate_non_null({src, dst});
+    if (err != FlashAttentionError::SUCCESS) {
+        return err;
     }
 
-    FlashAttentionError err =
-        validate_tile_params(row_start, col_start, max_rows, max_cols, stride);
+    err = detail::validate_tile_window(row_start, col_start, max_rows, max_cols, stride);
     if (err != FlashAttentionError::SUCCESS) {
         return err;
     }
@@ -241,11 +211,7 @@ FlashAttentionError load_store_tile_roundtrip(const float* src, float* dst, int 
     load_store_roundtrip_kernel<BLOCK_ROWS, BLOCK_COLS>
         <<<1, 128, smem_size, stream>>>(src, dst, row_start, col_start, max_rows, max_cols, stride);
 
-    cudaError_t cuda_err = cudaGetLastError();
-    if (cuda_err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
-    return FlashAttentionError::SUCCESS;
+    return detail::finish_kernel_launch();
 }
 
 // =============================================================================
