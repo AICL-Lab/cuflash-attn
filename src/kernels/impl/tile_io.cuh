@@ -4,23 +4,10 @@
 #include <cuda_runtime.h>
 #include <stdint.h>
 
+#include "type_adapter.cuh"
+
 namespace cuflash {
 namespace impl {
-
-// Type conversion utilities for unified FP32/FP16 kernels
-__device__ __forceinline__ float to_float(float val) {
-    return val;
-}
-__device__ __forceinline__ float to_float(half val) {
-    return __half2float(val);
-}
-
-__device__ __forceinline__ void store_float(float* ptr, float val) {
-    *ptr = val;
-}
-__device__ __forceinline__ void store_float(half* ptr, float val) {
-    *ptr = __float2half(val);
-}
 
 // Check alignment for float4 vectorized loads (16-byte alignment)
 __device__ __forceinline__ bool is_aligned_16(const void* ptr) {
@@ -137,16 +124,18 @@ __device__ __forceinline__ void load_tile_to_shared(const half* __restrict__ src
                 if (global_row < max_rows && global_col + 1 < max_cols) {
                     half2 val =
                         *reinterpret_cast<const half2*>(&src[global_row * src_stride + global_col]);
-                    dst[local_row * BLOCK_COLS + local_col] = __half2float(val.x);
-                    dst[local_row * BLOCK_COLS + local_col + 1] = __half2float(val.y);
+                    dst[local_row * BLOCK_COLS + local_col] = TypeAdapter<half>::to_compute(val.x);
+                    dst[local_row * BLOCK_COLS + local_col + 1] =
+                        TypeAdapter<half>::to_compute(val.y);
                 } else if (global_row < max_rows) {
                     dst[local_row * BLOCK_COLS + local_col] =
-                        (global_col < max_cols)
-                            ? __half2float(src[global_row * src_stride + global_col])
-                            : 0.0f;
+                        (global_col < max_cols) ? TypeAdapter<half>::to_compute(
+                                                      src[global_row * src_stride + global_col])
+                                                : 0.0f;
                     dst[local_row * BLOCK_COLS + local_col + 1] =
                         (global_col + 1 < max_cols)
-                            ? __half2float(src[global_row * src_stride + global_col + 1])
+                            ? TypeAdapter<half>::to_compute(
+                                  src[global_row * src_stride + global_col + 1])
                             : 0.0f;
                 } else {
                     dst[local_row * BLOCK_COLS + local_col] = 0.0f;
@@ -162,7 +151,7 @@ __device__ __forceinline__ void load_tile_to_shared(const half* __restrict__ src
 
                 if (global_row < max_rows && global_col < max_cols) {
                     dst[local_row * BLOCK_COLS + local_col] =
-                        __half2float(src[global_row * src_stride + global_col]);
+                        TypeAdapter<half>::to_compute(src[global_row * src_stride + global_col]);
                 } else {
                     dst[local_row * BLOCK_COLS + local_col] = 0.0f;
                 }
@@ -177,7 +166,7 @@ __device__ __forceinline__ void load_tile_to_shared(const half* __restrict__ src
 
             if (global_row < max_rows && global_col < max_cols) {
                 dst[local_row * BLOCK_COLS + local_col] =
-                    __half2float(src[global_row * src_stride + global_col]);
+                    TypeAdapter<half>::to_compute(src[global_row * src_stride + global_col]);
             } else {
                 dst[local_row * BLOCK_COLS + local_col] = 0.0f;
             }
@@ -285,16 +274,19 @@ __device__ __forceinline__ void store_tile_from_shared(const float* __restrict__
 
                 if (global_row < max_rows && global_col + 1 < max_cols) {
                     half2 val;
-                    val.x = __float2half(src[local_row * BLOCK_COLS + local_col]);
-                    val.y = __float2half(src[local_row * BLOCK_COLS + local_col + 1]);
+                    val.x =
+                        TypeAdapter<half>::from_compute(src[local_row * BLOCK_COLS + local_col]);
+                    val.y = TypeAdapter<half>::from_compute(
+                        src[local_row * BLOCK_COLS + local_col + 1]);
                     *reinterpret_cast<half2*>(&dst[global_row * dst_stride + global_col]) = val;
                 } else if (global_row < max_rows) {
                     if (global_col < max_cols)
-                        dst[global_row * dst_stride + global_col] =
-                            __float2half(src[local_row * BLOCK_COLS + local_col]);
+                        dst[global_row * dst_stride + global_col] = TypeAdapter<half>::from_compute(
+                            src[local_row * BLOCK_COLS + local_col]);
                     if (global_col + 1 < max_cols)
                         dst[global_row * dst_stride + global_col + 1] =
-                            __float2half(src[local_row * BLOCK_COLS + local_col + 1]);
+                            TypeAdapter<half>::from_compute(
+                                src[local_row * BLOCK_COLS + local_col + 1]);
                 }
             }
         } else {
@@ -306,7 +298,7 @@ __device__ __forceinline__ void store_tile_from_shared(const float* __restrict__
 
                 if (global_row < max_rows && global_col < max_cols) {
                     dst[global_row * dst_stride + global_col] =
-                        __float2half(src[local_row * BLOCK_COLS + local_col]);
+                        TypeAdapter<half>::from_compute(src[local_row * BLOCK_COLS + local_col]);
                 }
             }
         }
@@ -319,7 +311,7 @@ __device__ __forceinline__ void store_tile_from_shared(const float* __restrict__
 
             if (global_row < max_rows && global_col < max_cols) {
                 dst[global_row * dst_stride + global_col] =
-                    __float2half(src[local_row * BLOCK_COLS + local_col]);
+                    TypeAdapter<half>::from_compute(src[local_row * BLOCK_COLS + local_col]);
             }
         }
     }

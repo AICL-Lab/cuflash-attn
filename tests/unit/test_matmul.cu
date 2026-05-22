@@ -197,6 +197,42 @@ TEST_F(MatmulTest, ABt_HeadDim128_SmallTile) {
     cudaFree(d_C);
 }
 
+TEST_F(MatmulTest, ABt_HeadDim128_LargeTile) {
+    constexpr int M = 64, N = 64, K = 128;
+
+    std::vector<float> h_A(M * K), h_B(N * K);
+    std::mt19937 gen(9);
+    std::uniform_real_distribution<float> dist(-0.25f, 0.25f);
+    for (auto& v : h_A)
+        v = dist(gen);
+    for (auto& v : h_B)
+        v = dist(gen);
+
+    float scale = 0.08839f;  // ~1/sqrt(128)
+    auto h_C_expected = matmul_ABt_cpu(h_A, h_B, M, N, K, scale);
+
+    float *d_A, *d_B, *d_C;
+    cudaMalloc(&d_A, M * K * sizeof(float));
+    cudaMalloc(&d_B, N * K * sizeof(float));
+    cudaMalloc(&d_C, M * N * sizeof(float));
+    cudaMemcpy(d_A, h_A.data(), M * K * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_B, h_B.data(), N * K * sizeof(float), cudaMemcpyHostToDevice);
+
+    FlashAttentionError err = kernels::matmul_ABt<M, N, K>(d_A, d_B, d_C, scale, stream);
+    ASSERT_EQ(err, FlashAttentionError::SUCCESS);
+
+    std::vector<float> h_C(M * N);
+    cudaMemcpy(h_C.data(), d_C, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+
+    for (size_t i = 0; i < h_C.size(); i++) {
+        EXPECT_NEAR(h_C[i], h_C_expected[i], 1e-3f) << "Mismatch at index " << i;
+    }
+
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_C);
+}
+
 // =============================================================================
 // matmul_AB Tests (Attention Output Computation)
 // =============================================================================

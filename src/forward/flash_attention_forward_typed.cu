@@ -163,11 +163,12 @@ __global__ void __launch_bounds__(128)
         float l_inv = 1.0f / l_tile[row];
         for (int d = 0; d < HEAD_DIM; d++) {
             O_ptr[global_row * HEAD_DIM + d] =
-                InputT(O_tile[row * HEAD_DIM + d] * l_inv);  // Implicit float->half if needed
+                impl::TypeAdapter<InputT>::from_compute(O_tile[row * HEAD_DIM + d] * l_inv);
         }
 
         // Store logsumexp for backward pass
-        L_ptr[global_row] = InputT(m_tile[row] + logf(l_tile[row]));
+        L_ptr[global_row] =
+            impl::TypeAdapter<InputT>::from_compute(m_tile[row] + logf(l_tile[row]));
     }
 }
 
