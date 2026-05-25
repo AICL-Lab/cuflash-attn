@@ -127,12 +127,6 @@ function setLanguage(lang) {
       </svg>
       <span>Releases</span>
     </a>
-    <a href="https://github.com/AICL-Lab/cuflash-attn/blob/master/CHANGELOG.md" class="quick-link">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
-      </svg>
-      <span>Changelog</span>
-    </a>
   </div>
 </div>
 

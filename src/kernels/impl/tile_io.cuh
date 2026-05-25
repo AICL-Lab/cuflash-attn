@@ -439,9 +439,13 @@ struct ForwardTilingConfig {
 /// Tiling configuration for backward pass.
 /// Uses smaller blocks to accommodate additional gradient tensors in shared memory.
 struct BackwardTilingConfig {
-    // Standard block sizes for head_dim 32 and 64
+    // Standard block sizes for head_dim 32
     static constexpr int BLOCK_M = 64;  // Q block rows
     static constexpr int BLOCK_N = 64;  // K/V block rows
+
+    // Smaller blocks for head_dim 64 to stay within dynamic shared memory limits.
+    static constexpr int BLOCK_M_HD64 = 32;
+    static constexpr int BLOCK_N_HD64 = 32;
 
     // Smaller blocks for head_dim 128 (more aggressive due to dQ, dK, dV)
     static constexpr int BLOCK_M_HD128 = 16;

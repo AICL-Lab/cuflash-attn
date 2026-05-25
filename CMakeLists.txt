@@ -47,6 +47,8 @@ add_library(cuflash_attn ${SOURCES})
 target_link_libraries(cuflash_attn PUBLIC CUDA::cudart)
 target_include_directories(cuflash_attn PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>
+    $<INSTALL_INTERFACE:${CUDAToolkit_INCLUDE_DIRS}>
     $<INSTALL_INTERFACE:include>
 )
 # Private include directories for internal kernels
@@ -229,6 +231,8 @@ if(BUILD_TESTING AND BUILD_SHARED_LIBS)
             -Dinstall_dir=${CUFLASH_PACKAGE_SMOKE_INSTALL_DIR}
             -Dgenerator=${CMAKE_GENERATOR}
             -Dbuild_type=${CMAKE_BUILD_TYPE}
+            -Dc_compiler=${CMAKE_C_COMPILER}
+            -Dcxx_compiler=${CMAKE_CXX_COMPILER}
             -Dcuda_architectures=${CMAKE_CUDA_ARCHITECTURES}
             -Dctest_command=${CMAKE_CTEST_COMMAND}
             -P ${CMAKE_SOURCE_DIR}/cmake/run_package_smoke.cmake
@@ -244,7 +248,7 @@ if(BUILD_TESTING AND BUILD_SHARED_LIBS)
         )
         set_tests_properties(cuflash_attn_pytorch_comparison PROPERTIES
             LABELS "integration;pytorch"
-            SKIP_RETURN_CODE 0
+            SKIP_RETURN_CODE 77
         )
     endif()
 endif()

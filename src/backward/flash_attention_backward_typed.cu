@@ -302,6 +302,9 @@ template __global__ void flash_attention_backward_dq_kernel<float, 64, 64, 32>(
 template __global__ void flash_attention_backward_dq_kernel<float, 64, 64, 64>(
     const float*, const float*, const float*, const float*, const float*, const float*, float*, int,
     float, bool);
+template __global__ void flash_attention_backward_dq_kernel<float, 32, 32, 64>(
+    const float*, const float*, const float*, const float*, const float*, const float*, float*, int,
+    float, bool);
 template __global__ void flash_attention_backward_dq_kernel<float, 64, 64, 128>(
     const float*, const float*, const float*, const float*, const float*, const float*, float*, int,
     float, bool);
@@ -313,6 +316,9 @@ template __global__ void flash_attention_backward_dkdv_kernel<float, 64, 64, 32>
     const float*, const float*, const float*, const float*, const float*, const float*, float*,
     float*, int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<float, 64, 64, 64>(
+    const float*, const float*, const float*, const float*, const float*, const float*, float*,
+    float*, int, float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<float, 32, 32, 64>(
     const float*, const float*, const float*, const float*, const float*, const float*, float*,
     float*, int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<float, 64, 64, 128>(
@@ -333,6 +339,9 @@ template __global__ void flash_attention_backward_dq_kernel<half, 64, 64, 32>(
 template __global__ void flash_attention_backward_dq_kernel<half, 64, 64, 64>(
     const half*, const half*, const half*, const half*, const half*, const float*, half*, int,
     float, bool);
+template __global__ void flash_attention_backward_dq_kernel<half, 32, 32, 64>(
+    const half*, const half*, const half*, const half*, const half*, const float*, half*, int,
+    float, bool);
 template __global__ void flash_attention_backward_dq_kernel<half, 64, 64, 128>(
     const half*, const half*, const half*, const half*, const half*, const float*, half*, int,
     float, bool);
@@ -344,6 +353,9 @@ template __global__ void flash_attention_backward_dkdv_kernel<half, 64, 64, 32>(
     const half*, const half*, const half*, const half*, const half*, const float*, half*, half*,
     int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<half, 64, 64, 64>(
+    const half*, const half*, const half*, const half*, const half*, const float*, half*, half*,
+    int, float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<half, 32, 32, 64>(
     const half*, const half*, const half*, const half*, const half*, const float*, half*, half*,
     int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<half, 64, 64, 128>(
@@ -380,6 +392,8 @@ FlashAttentionError launch_flash_attention_backward_typed<float>(
     using Config = impl::BackwardTilingConfig;
     constexpr int BLOCK_M = Config::BLOCK_M;
     constexpr int BLOCK_N = Config::BLOCK_N;
+    constexpr int BLOCK_M_HD64 = Config::BLOCK_M_HD64;
+    constexpr int BLOCK_N_HD64 = Config::BLOCK_N_HD64;
     constexpr int BLOCK_M_HD128 = Config::BLOCK_M_HD128;
     constexpr int BLOCK_N_HD128 = Config::BLOCK_N_HD128;
 
@@ -416,10 +430,14 @@ FlashAttentionError launch_flash_attention_backward_typed<float>(
 
     int num_q_blocks = (seq_len + BLOCK_M - 1) / BLOCK_M;
     int num_kv_blocks = (seq_len + BLOCK_N - 1) / BLOCK_N;
+    int num_q_blocks_hd64 = (seq_len + BLOCK_M_HD64 - 1) / BLOCK_M_HD64;
+    int num_kv_blocks_hd64 = (seq_len + BLOCK_N_HD64 - 1) / BLOCK_N_HD64;
     int num_q_blocks_hd128 = (seq_len + BLOCK_M_HD128 - 1) / BLOCK_M_HD128;
     int num_kv_blocks_hd128 = (seq_len + BLOCK_N_HD128 - 1) / BLOCK_N_HD128;
     dim3 dq_grid(num_q_blocks, batch_heads);
     dim3 dkdv_grid(num_kv_blocks, batch_heads);
+    dim3 dq_grid_hd64(num_q_blocks_hd64, batch_heads);
+    dim3 dkdv_grid_hd64(num_kv_blocks_hd64, batch_heads);
     dim3 dq_grid_hd128(num_q_blocks_hd128, batch_heads);
     dim3 dkdv_grid_hd128(num_kv_blocks_hd128, batch_heads);
     dim3 block(128);
@@ -431,6 +449,16 @@ FlashAttentionError launch_flash_attention_backward_typed<float>(
     size_t dkdv_smem_size =
         (BLOCK_N * head_dim + BLOCK_N * head_dim + BLOCK_M * head_dim + BLOCK_M * head_dim +
          BLOCK_M * BLOCK_N + BLOCK_N * head_dim + BLOCK_N * head_dim + BLOCK_M + BLOCK_M) *
+        sizeof(float);
+    size_t dq_smem_size_hd64 =
+        (BLOCK_M_HD64 * head_dim + BLOCK_M_HD64 * head_dim + BLOCK_N_HD64 * head_dim +
+         BLOCK_N_HD64 * head_dim + BLOCK_M_HD64 * BLOCK_N_HD64 +
+         BLOCK_M_HD64 * head_dim + BLOCK_M_HD64 + BLOCK_M_HD64) *
+        sizeof(float);
+    size_t dkdv_smem_size_hd64 =
+        (BLOCK_N_HD64 * head_dim + BLOCK_N_HD64 * head_dim + BLOCK_M_HD64 * head_dim +
+         BLOCK_M_HD64 * head_dim + BLOCK_M_HD64 * BLOCK_N_HD64 +
+         BLOCK_N_HD64 * head_dim + BLOCK_N_HD64 * head_dim + BLOCK_M_HD64 + BLOCK_M_HD64) *
         sizeof(float);
     size_t dq_smem_size_hd128 =
         (BLOCK_M_HD128 * head_dim + BLOCK_M_HD128 * head_dim + BLOCK_N_HD128 * head_dim +
@@ -472,27 +500,27 @@ FlashAttentionError launch_flash_attention_backward_typed<float>(
     } else if (head_dim == 64) {
         status = prepare_dynamic_smem_launch(
             reinterpret_cast<const void*>(
-                flash_attention_backward_dq_kernel<float, BLOCK_M, BLOCK_N, 64>),
-            dq_smem_size);
+                flash_attention_backward_dq_kernel<float, BLOCK_M_HD64, BLOCK_N_HD64, 64>),
+            dq_smem_size_hd64);
         if (status != FlashAttentionError::SUCCESS)
             return status;
         status = prepare_dynamic_smem_launch(
             reinterpret_cast<const void*>(
-                flash_attention_backward_dkdv_kernel<float, BLOCK_M, BLOCK_N, 64>),
-            dkdv_smem_size);
+                flash_attention_backward_dkdv_kernel<float, BLOCK_M_HD64, BLOCK_N_HD64, 64>),
+            dkdv_smem_size_hd64);
         if (status != FlashAttentionError::SUCCESS)
             return status;
 
-        flash_attention_backward_dq_kernel<float, BLOCK_M, BLOCK_N, 64>
-            <<<dq_grid, block, dq_smem_size, stream>>>(Q, K, V, L, dO, D, dQ, seq_len, scale,
-                                                       causal);
+        flash_attention_backward_dq_kernel<float, BLOCK_M_HD64, BLOCK_N_HD64, 64>
+            <<<dq_grid_hd64, block, dq_smem_size_hd64, stream>>>(Q, K, V, L, dO, D, dQ, seq_len,
+                                                                 scale, causal);
         err = cudaGetLastError();
         if (err != cudaSuccess)
             return FlashAttentionError::CUDA_ERROR;
 
-        flash_attention_backward_dkdv_kernel<float, BLOCK_M, BLOCK_N, 64>
-            <<<dkdv_grid, block, dkdv_smem_size, stream>>>(Q, K, V, L, dO, D, dK, dV, seq_len,
-                                                           scale, causal);
+        flash_attention_backward_dkdv_kernel<float, BLOCK_M_HD64, BLOCK_N_HD64, 64>
+            <<<dkdv_grid_hd64, block, dkdv_smem_size_hd64, stream>>>(Q, K, V, L, dO, D, dK, dV,
+                                                                     seq_len, scale, causal);
     } else if (head_dim == 128) {
         status = prepare_dynamic_smem_launch(
             reinterpret_cast<const void*>(
@@ -536,6 +564,8 @@ FlashAttentionError launch_flash_attention_backward_typed<half>(
     using Config = impl::BackwardTilingConfig;
     constexpr int BLOCK_M = Config::BLOCK_M;
     constexpr int BLOCK_N = Config::BLOCK_N;
+    constexpr int BLOCK_M_HD64 = Config::BLOCK_M_HD64;
+    constexpr int BLOCK_N_HD64 = Config::BLOCK_N_HD64;
     constexpr int BLOCK_M_HD128 = Config::BLOCK_M_HD128;
     constexpr int BLOCK_N_HD128 = Config::BLOCK_N_HD128;
 
@@ -571,10 +601,14 @@ FlashAttentionError launch_flash_attention_backward_typed<half>(
 
     int num_q_blocks = (seq_len + BLOCK_M - 1) / BLOCK_M;
     int num_kv_blocks = (seq_len + BLOCK_N - 1) / BLOCK_N;
+    int num_q_blocks_hd64 = (seq_len + BLOCK_M_HD64 - 1) / BLOCK_M_HD64;
+    int num_kv_blocks_hd64 = (seq_len + BLOCK_N_HD64 - 1) / BLOCK_N_HD64;
     int num_q_blocks_hd128 = (seq_len + BLOCK_M_HD128 - 1) / BLOCK_M_HD128;
     int num_kv_blocks_hd128 = (seq_len + BLOCK_N_HD128 - 1) / BLOCK_N_HD128;
     dim3 dq_grid(num_q_blocks, batch_heads);
     dim3 dkdv_grid(num_kv_blocks, batch_heads);
+    dim3 dq_grid_hd64(num_q_blocks_hd64, batch_heads);
+    dim3 dkdv_grid_hd64(num_kv_blocks_hd64, batch_heads);
     dim3 dq_grid_hd128(num_q_blocks_hd128, batch_heads);
     dim3 dkdv_grid_hd128(num_kv_blocks_hd128, batch_heads);
     dim3 block(128);
@@ -586,6 +620,16 @@ FlashAttentionError launch_flash_attention_backward_typed<half>(
     size_t dkdv_smem_size =
         (BLOCK_N * head_dim + BLOCK_N * head_dim + BLOCK_M * head_dim + BLOCK_M * head_dim +
          BLOCK_M * BLOCK_N + BLOCK_N * head_dim + BLOCK_N * head_dim + BLOCK_M + BLOCK_M) *
+        sizeof(float);
+    size_t dq_smem_size_hd64 =
+        (BLOCK_M_HD64 * head_dim + BLOCK_M_HD64 * head_dim + BLOCK_N_HD64 * head_dim +
+         BLOCK_N_HD64 * head_dim + BLOCK_M_HD64 * BLOCK_N_HD64 +
+         BLOCK_M_HD64 * head_dim + BLOCK_M_HD64 + BLOCK_M_HD64) *
+        sizeof(float);
+    size_t dkdv_smem_size_hd64 =
+        (BLOCK_N_HD64 * head_dim + BLOCK_N_HD64 * head_dim + BLOCK_M_HD64 * head_dim +
+         BLOCK_M_HD64 * head_dim + BLOCK_M_HD64 * BLOCK_N_HD64 +
+         BLOCK_N_HD64 * head_dim + BLOCK_N_HD64 * head_dim + BLOCK_M_HD64 + BLOCK_M_HD64) *
         sizeof(float);
     size_t dq_smem_size_hd128 =
         (BLOCK_M_HD128 * head_dim + BLOCK_M_HD128 * head_dim + BLOCK_N_HD128 * head_dim +
@@ -627,27 +671,27 @@ FlashAttentionError launch_flash_attention_backward_typed<half>(
     } else if (head_dim == 64) {
         status = prepare_dynamic_smem_launch(
             reinterpret_cast<const void*>(
-                flash_attention_backward_dq_kernel<half, BLOCK_M, BLOCK_N, 64>),
-            dq_smem_size);
+                flash_attention_backward_dq_kernel<half, BLOCK_M_HD64, BLOCK_N_HD64, 64>),
+            dq_smem_size_hd64);
         if (status != FlashAttentionError::SUCCESS)
             return status;
         status = prepare_dynamic_smem_launch(
             reinterpret_cast<const void*>(
-                flash_attention_backward_dkdv_kernel<half, BLOCK_M, BLOCK_N, 64>),
-            dkdv_smem_size);
+                flash_attention_backward_dkdv_kernel<half, BLOCK_M_HD64, BLOCK_N_HD64, 64>),
+            dkdv_smem_size_hd64);
         if (status != FlashAttentionError::SUCCESS)
             return status;
 
-        flash_attention_backward_dq_kernel<half, BLOCK_M, BLOCK_N, 64>
-            <<<dq_grid, block, dq_smem_size, stream>>>(Q, K, V, L, dO, D, dQ, seq_len, scale,
-                                                       causal);
+        flash_attention_backward_dq_kernel<half, BLOCK_M_HD64, BLOCK_N_HD64, 64>
+            <<<dq_grid_hd64, block, dq_smem_size_hd64, stream>>>(Q, K, V, L, dO, D, dQ, seq_len,
+                                                                 scale, causal);
         err = cudaGetLastError();
         if (err != cudaSuccess)
             return FlashAttentionError::CUDA_ERROR;
 
-        flash_attention_backward_dkdv_kernel<half, BLOCK_M, BLOCK_N, 64>
-            <<<dkdv_grid, block, dkdv_smem_size, stream>>>(Q, K, V, L, dO, D, dK, dV, seq_len,
-                                                           scale, causal);
+        flash_attention_backward_dkdv_kernel<half, BLOCK_M_HD64, BLOCK_N_HD64, 64>
+            <<<dkdv_grid_hd64, block, dkdv_smem_size_hd64, stream>>>(Q, K, V, L, dO, D, dK, dV,
+                                                                     seq_len, scale, causal);
     } else if (head_dim == 128) {
         status = prepare_dynamic_smem_launch(
             reinterpret_cast<const void*>(

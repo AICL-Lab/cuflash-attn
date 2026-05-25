@@ -247,6 +247,16 @@ template FlashAttentionError matmul_AB_acc<64, 64, 32>(const float*, const float
 template FlashAttentionError matmul_AtB<64, 64, 32>(const float*, const float*, float*, float,
                                                     cudaStream_t);
 
+// 32x32x32 (head_dim=32, compact tiles)
+template FlashAttentionError matmul_ABt<32, 32, 32>(const float*, const float*, float*, float,
+                                                    cudaStream_t);
+template FlashAttentionError matmul_AB<32, 32, 32>(const float*, const float*, float*, float,
+                                                   cudaStream_t);
+template FlashAttentionError matmul_AB_acc<32, 32, 32>(const float*, const float*, float*, float,
+                                                       cudaStream_t);
+template FlashAttentionError matmul_AtB<32, 32, 32>(const float*, const float*, float*, float,
+                                                    cudaStream_t);
+
 // 64x64x64 (head_dim=64)
 template FlashAttentionError matmul_ABt<64, 64, 64>(const float*, const float*, float*, float,
                                                     cudaStream_t);
@@ -278,6 +288,16 @@ template FlashAttentionError matmul_AtB<64, 64, 128>(const float*, const float*,
                                                      cudaStream_t);
 
 // Additional sizes for flexibility
+// 32x64x32 variants
+template FlashAttentionError matmul_ABt<32, 64, 32>(const float*, const float*, float*, float,
+                                                    cudaStream_t);
+template FlashAttentionError matmul_AB<32, 64, 32>(const float*, const float*, float*, float,
+                                                   cudaStream_t);
+template FlashAttentionError matmul_AB_acc<32, 64, 32>(const float*, const float*, float*, float,
+                                                       cudaStream_t);
+template FlashAttentionError matmul_AtB<32, 64, 32>(const float*, const float*, float*, float,
+                                                    cudaStream_t);
+
 // 32x64 variants
 template FlashAttentionError matmul_ABt<32, 64, 64>(const float*, const float*, float*, float,
                                                     cudaStream_t);

@@ -383,8 +383,6 @@ clang-tidy src/api/flash_attention_api.cu -- -Iinclude
 
 📋 **详细指南**: 请参见 [CONTRIBUTING.md](CONTRIBUTING.md)
 
-🤖 **AI 贡献者**: 阅读 [AGENTS.md](AGENTS.md) 了解 SDD 工作流说明。
-
 ---
 
 ## 📄 许可证
@@ -408,5 +406,5 @@ clang-tidy src/api/flash_attention_api.cu -- -Iinclude
 
 <p align="center">
   <sub>用 ❤️ 打造的高效注意力计算</sub><br>
-  <sub>规范驱动开发 · CUDA C++ · 开源</sub>
+  <sub>精简参考实现 · CUDA C++ · 开源</sub>
 </p>

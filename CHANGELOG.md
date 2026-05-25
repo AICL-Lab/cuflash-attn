@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified contributor guidance, Copilot instructions, and pull request metadata to match the real repository workflow.
 - Reduced GitHub Pages scope to product documentation; changelog history now lives only in the root `CHANGELOG.md`.
 - Removed docs-site spec mirrors, release-note mirrors, and AI planning artifacts that duplicated repository content.
+- Removed stale README references to the deleted `AGENTS.md` workflow document and replaced leftover SDD branding with lean repository wording.
+- Removed `.claude`/`CLAUDE.local.md` ignore rules that only served deleted AI tooling overlays.
+- Simplified the GitHub Pages landing page links so the docs site no longer surfaces changelog navigation.
+- Fixed CUDA preset validation on fresh Ubuntu environments by documenting and working through the required host-compiler/toolkit alignment.
+- Fixed backward kernel dispatch for `head_dim=64` by using a smaller shared-memory tiling path that fits current CUDA limits.
+- Fixed package-smoke consumption by exposing CUDA headers through the exported target and simplifying the downstream smoke project to a pure C++ consumer.
+- Fixed the FP16 tile store test to validate half-rounding semantics instead of comparing against the original float with an unrealistically tight tolerance.
+- Fixed the optional PyTorch comparison script to skip cleanly when `torch` is not installed.
 
 ---
 
