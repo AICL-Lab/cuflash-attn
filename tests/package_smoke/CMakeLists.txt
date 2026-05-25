@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(cuflash_attn_package_smoke LANGUAGES CXX CUDA)
+project(cuflash_attn_package_smoke LANGUAGES CXX)
 
 find_package(cuflash_attn REQUIRED CONFIG)
 

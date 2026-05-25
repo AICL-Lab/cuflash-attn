@@ -277,8 +277,9 @@ TEST_F(TileIOTest, StoreTileFP16_32x128) {
 
     // Verify conversion and storage
     for (int i = 0; i < BLOCK_ROWS * BLOCK_COLS; i++) {
-        float expected = __half2float(h_dst[i]);
-        EXPECT_NEAR(expected, h_tile[i], 1e-3f) << "Mismatch at index " << i;
+        float expected = __half2float(__float2half(h_tile[i]));
+        float actual = __half2float(h_dst[i]);
+        EXPECT_FLOAT_EQ(actual, expected) << "Mismatch at index " << i;
     }
 
     cudaFree(d_tile);

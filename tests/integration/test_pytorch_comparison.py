@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 PyTorch Comparison Tests for CuFlash-Attn
 Feature: cuflash-attn
@@ -15,12 +17,21 @@ import sys
 from typing import Optional, Sequence, Tuple
 
 import numpy as np
-import torch
-import torch.nn.functional as F
+
+try:
+    import torch
+    import torch.nn.functional as F
+except ModuleNotFoundError as import_error:
+    torch = None
+    F = None
+    TORCH_IMPORT_ERROR = import_error
+else:
+    TORCH_IMPORT_ERROR = None
 
 
 SUCCESS = 0
 UNSUPPORTED_DTYPE = 7
+SKIP = 77
 
 
 class CuFlashLibrary:
@@ -104,8 +115,12 @@ def _script_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def _repo_root() -> str:
+    return os.path.abspath(os.path.join(_script_dir(), "..", ".."))
+
+
 def _candidate_library_paths() -> Sequence[str]:
-    root = os.path.abspath(os.path.join(_script_dir(), ".."))
+    root = _repo_root()
     build_dir = os.path.join(root, "build")
     candidates = []
 
@@ -504,13 +519,17 @@ def main():
     print("CuFlash-Attn PyTorch Comparison Tests")
     print("=" * 60)
 
+    if TORCH_IMPORT_ERROR is not None:
+        print(f"PyTorch not available, skipping tests: {TORCH_IMPORT_ERROR}")
+        return SKIP
+
     if not torch.cuda.is_available():
         print("CUDA not available, skipping tests")
-        return
+        return SKIP
 
     library = load_library()
     if library is None:
-        return
+        return SKIP
 
     print(f"Using CUDA device: {torch.cuda.get_device_name(0)}")
     print()
@@ -539,7 +558,8 @@ def main():
     print("=" * 60)
     print(f"Results: {passed} passed, {failed} failed")
     print("=" * 60)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

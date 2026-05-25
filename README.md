@@ -383,8 +383,6 @@ clang-tidy src/api/flash_attention_api.cu -- -Iinclude
 
 📋 **Detailed guidelines**: See [CONTRIBUTING.md](CONTRIBUTING.md)
 
-🤖 **For AI Contributors**: Read [AGENTS.md](AGENTS.md) for SDD workflow instructions.
-
 ---
 
 ## 📄 License
@@ -408,5 +406,5 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history and updates.
 
 <p align="center">
   <sub>Built with ❤️ for efficient attention computation</sub><br>
-  <sub>Spec-Driven Development · CUDA C++ · Open Source</sub>
+  <sub>Lean Reference Implementation · CUDA C++ · Open Source</sub>
 </p>
