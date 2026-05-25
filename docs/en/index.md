@@ -72,9 +72,9 @@ const features = [
   },
   {
     icon: '🔬',
-    title: 'Spec-Driven',
-    desc: 'All design decisions traced to OpenSpec specifications. Educational and production-ready.',
-    link: { text: 'OpenSpec', href: 'https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs' }
+    title: 'Lean Maintenance',
+    desc: 'Docs, workflows, and repository structure stay intentionally minimal and aligned with the actual library.',
+    link: { text: 'Project Status', href: '/cuflash-attn/en/project-status' }
   }
 ]
 </script>

@@ -69,7 +69,7 @@ jobs:
 
       - name: Install docs dependencies
         working-directory: docs
-        run: npm install --no-package-lock
+        run: npm ci
 
       - name: Build docs
         working-directory: docs

@@ -1,45 +1,34 @@
 # Project Status
 
-CuFlash-Attn is maintained as a **stable v0.3.0 baseline** and an **archive-ready reference implementation**. The current work focuses on governance cleanup, documentation quality, workflow simplification, and bug fixes rather than feature expansion.
+CuFlash-Attn is maintained as a **stable v0.3.0 reference implementation** for learning, auditing, and lightweight integration.
 
-## What this project covers
+## What stays in scope
 
-- From-scratch CUDA C++ implementation of FlashAttention
+- CUDA C++ FlashAttention from scratch
 - Forward and backward passes for `float` and `half`
 - Supported `head_dim` values: `32`, `64`, `128`
-- Public C++ API plus C ABI for Python `ctypes` integration
-- OpenSpec-tracked design and verification rules
+- Public C++ API and C ABI for `ctypes`-style integration
+- Bilingual technical documentation and GitHub Pages publishing
 
 ## Maintenance posture
 
-This repository is intentionally optimized for:
+This repository now prefers:
 
-- **clarity over breadth**: no speculative feature growth
-- **stable integration surface**: examples, docs, and ABI stay aligned
-- **lightweight engineering**: preset-based builds, focused CI, bilingual docs
-- **handoff readiness**: contributors and follow-up models can continue from explicit specs and control docs
-
-## Development workflow
-
-The preferred workflow is:
-
-1. Read the relevant files in `openspec/specs/`
-2. Capture changes through an OpenSpec change when scope or behavior shifts
-3. Build with CMake presets only
-4. Run verification appropriate to the environment
-5. Use review before landing non-trivial changes
-
-## Validation boundaries
-
-- Local CUDA builds require a working toolkit and `nvcc`
-- GPU tests are skipped automatically on systems without a CUDA device
-- Documentation and workflow cleanup can be validated without a GPU
+1. **clarity over process**
+2. **deletion over framework sprawl**
+3. **stable behavior over speculative features**
+4. **one canonical source per topic**
 
 ## Canonical references
 
 - [Quick Start](/en/guide/quick-start)
-- [Building from Source](/en/building)
 - [API Reference](/en/api-reference)
-- [Troubleshooting](/en/troubleshooting)
+- [Architecture](/en/architecture)
+- [Repository README](https://github.com/AICL-Lab/cuflash-attn/blob/master/README.md)
 - [CHANGELOG.md](https://github.com/AICL-Lab/cuflash-attn/blob/master/CHANGELOG.md)
-- [OpenSpec Specifications](https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs)
+
+## Validation boundaries
+
+- Full CUDA builds require a working toolkit and `nvcc`
+- GPU tests may be unavailable on documentation-only environments
+- Docs and workflow cleanup should still keep the docs build and repository layout coherent

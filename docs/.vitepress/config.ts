@@ -1,6 +1,5 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
-import llmstxt from 'vitepress-plugin-llms'
 
 // Dynamic base path for GitHub Pages deployment
 const rawBase = process.env.VITEPRESS_BASE
@@ -34,10 +33,8 @@ const enNav = [
     text: 'Project',
     items: [
       { text: 'Project Status', link: '/en/project-status' },
-      { text: 'Changelog', link: '/en/release-notes/changelog', activeMatch: '/en/release-notes/' },
-      { text: 'Breaking Changes', link: '/en/release-notes/breaking-changes' },
       { text: 'Releases', link: 'https://github.com/AICL-Lab/cuflash-attn/releases' },
-      { text: 'Specs', link: 'https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs' }
+      { text: 'Repository', link: 'https://github.com/AICL-Lab/cuflash-attn' }
     ]
   }
 ]
@@ -52,10 +49,8 @@ const zhNav = [
     text: '项目',
     items: [
       { text: '项目状态', link: '/zh/project-status' },
-      { text: '更新日志', link: '/zh/release-notes/changelog', activeMatch: '/zh/release-notes/' },
-      { text: '破坏性变更', link: '/zh/release-notes/breaking-changes' },
       { text: '发布版本', link: 'https://github.com/AICL-Lab/cuflash-attn/releases' },
-      { text: '规范文档', link: 'https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs' }
+      { text: '仓库源码', link: 'https://github.com/AICL-Lab/cuflash-attn' }
     ]
   }
 ]
@@ -94,8 +89,7 @@ const enSidebar = {
       collapsed: false,
       items: [
         { text: 'API Reference', link: '/en/api-reference' },
-        { text: 'Troubleshooting', link: '/en/troubleshooting' },
-        { text: 'OpenSpec Specs', link: '/en/specs/' }
+        { text: 'Troubleshooting', link: '/en/troubleshooting' }
       ]
     },
     {
@@ -104,14 +98,6 @@ const enSidebar = {
       items: [
         { text: 'Related Work', link: '/en/research/related-work' },
         { text: 'References', link: '/en/research/references' }
-      ]
-    },
-    {
-      text: 'Release Notes',
-      collapsed: false,
-      items: [
-        { text: 'Changelog', link: '/en/release-notes/changelog' },
-        { text: 'Breaking Changes', link: '/en/release-notes/breaking-changes' }
       ]
     },
     {
@@ -158,8 +144,7 @@ const zhSidebar = {
       collapsed: false,
       items: [
         { text: 'API 参考', link: '/zh/api-reference' },
-        { text: '故障排除', link: '/zh/troubleshooting' },
-        { text: 'OpenSpec 规范', link: '/zh/specs/' }
+        { text: '故障排除', link: '/zh/troubleshooting' }
       ]
     },
     {
@@ -168,14 +153,6 @@ const zhSidebar = {
       items: [
         { text: '相关工作', link: '/zh/research/related-work' },
         { text: '参考文献', link: '/zh/research/references' }
-      ]
-    },
-    {
-      text: '发布说明',
-      collapsed: false,
-      items: [
-        { text: '更新日志', link: '/zh/release-notes/changelog' },
-        { text: '破坏性变更', link: '/zh/release-notes/breaking-changes' }
       ]
     },
     {
@@ -245,7 +222,7 @@ export default withMermaid(defineConfig({
       { icon: 'github', link: 'https://github.com/AICL-Lab/cuflash-attn' }
     ],
     footer: {
-      message: 'Stable v0.3.0 baseline. OpenSpec-driven CUDA FlashAttention reference.',
+      message: 'Stable v0.3.0 baseline. Lean CUDA FlashAttention reference.',
       copyright: 'Copyright 2026 AICL-Lab.'
     },
     editLink: {
@@ -278,8 +255,7 @@ export default withMermaid(defineConfig({
       alias: {
         '@': '/.vitepress'
       }
-    },
-    plugins: [llmstxt()]
+    }
   },
 
   srcDir: '.',

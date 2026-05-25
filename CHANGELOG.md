@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Stabilization and governance cleanup after `v0.3.0`.
+### Changed
+
+- Removed AI control framework directories and stale governance scaffolding (`openspec`, `trellis`, `superpowers`, and related tool overlays).
+- Simplified contributor guidance, Copilot instructions, and pull request metadata to match the real repository workflow.
+- Reduced GitHub Pages scope to product documentation; changelog history now lives only in the root `CHANGELOG.md`.
+- Removed docs-site spec mirrors, release-note mirrors, and AI planning artifacts that duplicated repository content.
 
 ---
 

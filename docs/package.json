@@ -5,9 +5,8 @@
   "type": "module",
   "description": "Academic-grade documentation for CuFlash-Attn",
   "scripts": {
-    "sync": "node scripts/sync-changelog.mjs",
-    "docs:dev": "npm run sync && vitepress dev",
-    "docs:build": "npm run sync && vitepress build",
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {
@@ -17,7 +16,6 @@
   "dependencies": {
     "markdown-it-mathjax3": "^4.3.2",
     "mermaid": "^11.12.2",
-    "vitepress-plugin-llms": "^1.10.0",
     "vitepress-plugin-mermaid": "^2.0.17"
   },
   "engines": {

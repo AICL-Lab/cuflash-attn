@@ -2,13 +2,13 @@
 
 > **从零实现的高性能 CUDA C++ FlashAttention**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/codeql.yml?branch=master&style=flat-square&logo=github&label=CodeQL)](https://github.com/LessUp/cuflash-attn/actions/workflows/codeql.yml)
-[![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=文档)](https://lessup.github.io/cuflash-attn/)
+[![CI](https://img.shields.io/github/actions/workflow/status/AICL-Lab/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/AICL-Lab/cuflash-attn/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/AICL-Lab/cuflash-attn/codeql.yml?branch=master&style=flat-square&logo=github&label=CodeQL)](https://github.com/AICL-Lab/cuflash-attn/actions/workflows/codeql.yml)
+[![Docs](https://img.shields.io/github/actions/workflow/status/AICL-Lab/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=文档)](https://aicl-lab.github.io/cuflash-attn/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/github/v/release/LessUp/cuflash-attn?style=flat-square&label=版本)](https://github.com/LessUp/cuflash-attn/releases)
+[![Version](https://img.shields.io/github/v/release/AICL-Lab/cuflash-attn?style=flat-square&label=版本)](https://github.com/AICL-Lab/cuflash-attn/releases)
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [文档](https://lessup.github.io/cuflash-attn/zh/) · [API 参考](https://lessup.github.io/cuflash-attn/zh/api-reference)
+[English](README.md) · [简体中文](README.zh-CN.md) · [文档](https://aicl-lab.github.io/cuflash-attn/zh/) · [API 参考](https://aicl-lab.github.io/cuflash-attn/zh/api-reference)
 
 ---
 
@@ -18,10 +18,10 @@ CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育
 
 ### 项目状态
 
-- **状态**：稳定的 `v0.3.0` 代码库，正在做最终治理收敛
-- **真相源**：[`openspec/specs/`](openspec/specs/)
-- **定位**：可归档的高质量参考实现，适合学习、审计与轻量集成
-- **当前重点**：继续收敛文档、工作流、AI 指令和长尾缺陷，而不是扩展新功能
+- **状态**：稳定的 `v0.3.0` 代码库，正在做维护收敛
+- **权威入口**：公开头文件、实现、测试和用户文档
+- **定位**：面向学习、审计与轻量集成的精简参考实现
+- **当前重点**：删除过时流程层、收紧文档并修复长尾缺陷，而不是扩展新功能
 
 ### 为什么选择 CuFlash-Attn？
 
@@ -76,7 +76,7 @@ CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育
 
 ```bash
 # 克隆仓库
-git clone https://github.com/LessUp/cuflash-attn.git
+git clone https://github.com/AICL-Lab/cuflash-attn.git
 cd cuflash-attn
 
 # 使用预设构建（Release 模式）
@@ -244,16 +244,16 @@ cmake --build --preset release
 
 | 资源 | 链接 |
 |------|------|
-| 📘 **完整文档** | [https://lessup.github.io/cuflash-attn/zh/](https://lessup.github.io/cuflash-attn/zh/) |
-| 🔌 **API 参考** | [中文 API 文档](https://lessup.github.io/cuflash-attn/zh/api-reference) |
-| 🧠 **算法详解** | [深入理解 FlashAttention](https://lessup.github.io/cuflash-attn/zh/algorithm) |
-| 🔧 **构建指南** | [从源码构建](https://lessup.github.io/cuflash-attn/zh/building) |
-| ❓ **故障排除** | [常见问题与解决方案](https://lessup.github.io/cuflash-attn/zh/troubleshooting) |
+| 📘 **完整文档** | [https://aicl-lab.github.io/cuflash-attn/zh/](https://aicl-lab.github.io/cuflash-attn/zh/) |
+| 🔌 **API 参考** | [中文 API 文档](https://aicl-lab.github.io/cuflash-attn/zh/api-reference) |
+| 🧠 **算法详解** | [深入理解 FlashAttention](https://aicl-lab.github.io/cuflash-attn/zh/algorithm) |
+| 🔧 **构建指南** | [从源码构建](https://aicl-lab.github.io/cuflash-attn/zh/building) |
+| ❓ **故障排除** | [常见问题与解决方案](https://aicl-lab.github.io/cuflash-attn/zh/troubleshooting) |
 
 ### 文档语言
 
-- 🇬🇧 [English Documentation](https://lessup.github.io/cuflash-attn/)
-- 🇨🇳 [中文文档](https://lessup.github.io/cuflash-attn/zh/)
+- 🇬🇧 [English Documentation](https://aicl-lab.github.io/cuflash-attn/)
+- 🇨🇳 [中文文档](https://aicl-lab.github.io/cuflash-attn/zh/)
 
 ---
 
@@ -303,9 +303,6 @@ cuflash-attn/
 │   ├── flash_attention.h       # 主 API，包含 C++ 和 C ABI
 │   ├── export.h                # 可见性宏
 │   └── version.h.in            # 版本头文件模板
-├── openspec/                   # OpenSpec 真相源
-│   ├── specs/                  # 已接受的设计与验证规范
-│   └── changes/                # 变更提案、设计与任务清单
 ├── src/                        # 实现代码
 │   ├── api/                    # API 调度层
 │   ├── forward/                # 前向传播内核实现
@@ -360,16 +357,15 @@ ctest --preset debug-asan
 
 ## 🤝 贡献
 
-欢迎贡献！本项目遵循**规范驱动开发（SDD）**方法。
+欢迎贡献。请保持改动聚焦、明确，并围绕当前 CUDA 库边界推进。
 
 ### 开始贡献
 
-1. **首先阅读规范** 📖 — 所有需求都在 [openspec/specs/](openspec/specs/) 中
-2. **Fork 并克隆** 仓库
-3. **创建分支** 用于你的功能或修复
-4. **编写测试** 验证你的更改
-5. **更新文档** 如果 API 变更
-6. **提交拉取请求**
+1. **克隆仓库** 并确认当前范围
+2. **使用 preset 构建**，先验证环境可用
+3. **编写或更新测试** 覆盖你的改动
+4. **同步更新文档**，确保行为、API 用法和工作流描述一致
+5. **提交拉取请求**，附上简明摘要和验证说明
 
 ### 开发工作流
 

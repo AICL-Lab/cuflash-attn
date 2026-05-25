@@ -5,11 +5,8 @@ on:
     branches: [main, master]
     paths-ignore:
       - "docs/**"
-      - "openspec/**"
       - "README*.md"
       - "CHANGELOG.md"
-      - "AGENTS.md"
-      - "CLAUDE*.md"
       - "CONTRIBUTING.md"
       - ".github/ISSUE_TEMPLATE/**"
       - ".github/copilot-instructions.md"
@@ -17,11 +14,8 @@ on:
     branches: [main, master]
     paths-ignore:
       - "docs/**"
-      - "openspec/**"
       - "README*.md"
       - "CHANGELOG.md"
-      - "AGENTS.md"
-      - "CLAUDE*.md"
       - "CONTRIBUTING.md"
       - ".github/ISSUE_TEMPLATE/**"
       - ".github/copilot-instructions.md"

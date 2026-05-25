@@ -99,8 +99,8 @@ function setLanguage(lang) {
   <div class="feature">
     <div class="feature-icon">🎯</div>
     <div class="feature-text">
-      <strong>Spec-Driven</strong>
-      <span>All design traced to OpenSpec</span>
+      <strong>Lean Maintenance</strong>
+      <span>Docs and workflows match the real repository surface</span>
     </div>
   </div>
   <div class="feature">
@@ -127,11 +127,11 @@ function setLanguage(lang) {
       </svg>
       <span>Releases</span>
     </a>
-    <a href="https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs" class="quick-link">
+    <a href="https://github.com/AICL-Lab/cuflash-attn/blob/master/CHANGELOG.md" class="quick-link">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
         <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
       </svg>
-      <span>OpenSpec</span>
+      <span>Changelog</span>
     </a>
   </div>
 </div>

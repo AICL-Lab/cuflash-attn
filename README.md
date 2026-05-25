@@ -2,13 +2,13 @@
 
 > **High-performance CUDA C++ FlashAttention implementation from scratch**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/LessUp/cuflash-attn/actions/workflows/ci.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/codeql.yml?branch=master&style=flat-square&logo=github&label=CodeQL)](https://github.com/LessUp/cuflash-attn/actions/workflows/codeql.yml)
-[![Docs](https://img.shields.io/github/actions/workflow/status/LessUp/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://lessup.github.io/cuflash-attn/)
+[![CI](https://img.shields.io/github/actions/workflow/status/AICL-Lab/cuflash-attn/ci.yml?branch=master&style=flat-square&logo=github&label=CI)](https://github.com/AICL-Lab/cuflash-attn/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/AICL-Lab/cuflash-attn/codeql.yml?branch=master&style=flat-square&logo=github&label=CodeQL)](https://github.com/AICL-Lab/cuflash-attn/actions/workflows/codeql.yml)
+[![Docs](https://img.shields.io/github/actions/workflow/status/AICL-Lab/cuflash-attn/pages.yml?branch=master&style=flat-square&logo=githubpages&logoColor=white&label=Docs)](https://aicl-lab.github.io/cuflash-attn/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/github/v/release/LessUp/cuflash-attn?style=flat-square&label=version)](https://github.com/LessUp/cuflash-attn/releases)
+[![Version](https://img.shields.io/github/v/release/AICL-Lab/cuflash-attn?style=flat-square&label=version)](https://github.com/AICL-Lab/cuflash-attn/releases)
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Documentation](https://lessup.github.io/cuflash-attn/) · [API Reference](https://lessup.github.io/cuflash-attn/en/api-reference)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Documentation](https://aicl-lab.github.io/cuflash-attn/) · [API Reference](https://aicl-lab.github.io/cuflash-attn/en/api-reference)
 
 ---
 
@@ -18,10 +18,10 @@ CuFlash-Attn is a **from-scratch implementation** of the FlashAttention algorith
 
 ### Project Status
 
-- **Status**: Stable `v0.3.0` codebase under final-governance cleanup
-- **Source of Truth**: [`openspec/specs/`](openspec/specs/)
-- **Positioning**: Archive-ready reference implementation that remains useful for learning, auditing, and lightweight integration
-- **Current Focus**: Tightening docs, workflows, AI instructions, and long-tail defects rather than adding new features
+- **Status**: Stable `v0.3.0` codebase under maintenance cleanup
+- **Source of Truth**: public headers, implementation, tests, and user-facing docs
+- **Positioning**: Lean reference implementation for learning, auditing, and lightweight integration
+- **Current Focus**: Removing stale workflow layers, tightening docs, and fixing long-tail defects rather than adding new features
 
 ### Why CuFlash-Attn?
 
@@ -76,7 +76,7 @@ CuFlash-Attn is a **from-scratch implementation** of the FlashAttention algorith
 
 ```bash
 # Clone repository
-git clone https://github.com/LessUp/cuflash-attn.git
+git clone https://github.com/AICL-Lab/cuflash-attn.git
 cd cuflash-attn
 
 # Build with preset (Release mode)
@@ -244,16 +244,16 @@ cmake --build --preset release
 
 | Resource | Link |
 |----------|------|
-| 📘 **Full Documentation** | [https://lessup.github.io/cuflash-attn/](https://lessup.github.io/cuflash-attn/) |
-| 🔌 **API Reference** | [English API Docs](https://lessup.github.io/cuflash-attn/en/api-reference) |
-| 🧠 **Algorithm Deep Dive** | [FlashAttention Explained](https://lessup.github.io/cuflash-attn/en/algorithm) |
-| 🔧 **Build Guide** | [Building from Source](https://lessup.github.io/cuflash-attn/en/building) |
-| ❓ **Troubleshooting** | [Common Issues & Solutions](https://lessup.github.io/cuflash-attn/en/troubleshooting) |
+| 📘 **Full Documentation** | [https://aicl-lab.github.io/cuflash-attn/](https://aicl-lab.github.io/cuflash-attn/) |
+| 🔌 **API Reference** | [English API Docs](https://aicl-lab.github.io/cuflash-attn/en/api-reference) |
+| 🧠 **Algorithm Deep Dive** | [FlashAttention Explained](https://aicl-lab.github.io/cuflash-attn/en/algorithm) |
+| 🔧 **Build Guide** | [Building from Source](https://aicl-lab.github.io/cuflash-attn/en/building) |
+| ❓ **Troubleshooting** | [Common Issues & Solutions](https://aicl-lab.github.io/cuflash-attn/en/troubleshooting) |
 
 ### Documentation Languages
 
-- 🇬🇧 [English Documentation](https://lessup.github.io/cuflash-attn/)
-- 🇨🇳 [中文文档](https://lessup.github.io/cuflash-attn/zh/)
+- 🇬🇧 [English Documentation](https://aicl-lab.github.io/cuflash-attn/)
+- 🇨🇳 [中文文档](https://aicl-lab.github.io/cuflash-attn/zh/)
 
 ---
 
@@ -303,9 +303,6 @@ cuflash-attn/
 │   ├── flash_attention.h       # Main API with C++ and C ABI
 │   ├── export.h                # Visibility macros
 │   └── version.h.in            # Version header template
-├── openspec/                   # OpenSpec source of truth
-│   ├── specs/                  # Accepted design + verification specs
-│   └── changes/                # Change proposals, designs, task lists
 ├── src/                        # Implementation
 │   ├── api/                    # API dispatch layer
 │   ├── forward/                # Forward kernel implementations
@@ -360,16 +357,15 @@ ctest --preset debug-asan
 
 ## 🤝 Contributing
 
-Contributions are welcome! This project follows **Spec-Driven Development (SDD)** methodology.
+Contributions are welcome. Keep changes small, explicit, and aligned with the current CUDA library boundary.
 
 ### Getting Started
 
-1. **Read the specs first** 📖 — All requirements are in [openspec/specs/](openspec/specs/)
-2. **Fork & clone** the repository
-3. **Create a branch** for your feature or fix
-4. **Write tests** that validate your changes
-5. **Update documentation** if API changes
-6. **Submit a pull request**
+1. **Clone the repository** and confirm the current scope
+2. **Build with presets** and validate the environment
+3. **Write or update tests** that cover your change
+4. **Update docs** when behavior, API usage, or workflows change
+5. **Open a pull request** with a concise summary and validation notes
 
 ### Development Workflow
 

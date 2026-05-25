@@ -72,9 +72,9 @@ const features = [
   },
   {
     icon: '🔬',
-    title: '规范驱动',
-    desc: '所有设计决策可追溯到 OpenSpec 规范。教育级质量，生产就绪。',
-    link: { text: 'OpenSpec', href: 'https://github.com/AICL-Lab/cuflash-attn/tree/master/openspec/specs' }
+    title: '轻量维护',
+    desc: '文档、工作流与仓库结构保持精简，并与实际库边界持续对齐。',
+    link: { text: '项目状态', href: '/cuflash-attn/zh/project-status' }
   }
 ]
 </script>

@@ -78,13 +78,7 @@ venv/
 # Benchmark outputs
 benchmark_results/
 
-# Claude local preferences
+# Local AI preferences
 CLAUDE.local.md
-
-# Claude Code local settings and generic skills (machine-local, not project-specific)
 .claude/settings.local.json
 .claude/skills/
-
-# BMad Method V6
-_bmad/
-_bmad-output/

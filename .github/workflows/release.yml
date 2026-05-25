@@ -107,7 +107,7 @@ jobs:
             
             **English:**
             ```bash
-            git clone https://github.com/LessUp/cuflash-attn.git
+            git clone https://github.com/AICL-Lab/cuflash-attn.git
             cd cuflash-attn
             cmake --preset release
             cmake --build --preset release
@@ -115,7 +115,7 @@ jobs:
             
             **中文:**
             ```bash
-            git clone https://github.com/LessUp/cuflash-attn.git
+            git clone https://github.com/AICL-Lab/cuflash-attn.git
             cd cuflash-attn
             cmake --preset release
             cmake --build --preset release

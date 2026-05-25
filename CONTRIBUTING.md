@@ -1,67 +1,54 @@
 # Contributing to CuFlash-Attn
 
-CuFlash-Attn is in **final-governance / archive-ready stabilization**. Contributions should bias toward
-spec alignment, documentation quality, workflow simplification, and bug cleanup over feature expansion.
+CuFlash-Attn is maintained as a **lean CUDA FlashAttention reference implementation**. Favor fixes, refactors, documentation accuracy, and workflow simplification over feature growth.
 
 ## Prerequisites
 
-- NVIDIA GPU with Compute Capability 7.0+ (V100+)
+- NVIDIA GPU with Compute Capability 7.0+ for full local validation
 - CUDA Toolkit 12.x
-- CMake 3.18+, GCC 9+, C++17
+- CMake 3.18+
+- A C++17-capable compiler
+- Node.js 18+ for documentation work
 
-## Development Workflow (OpenSpec)
-
-This project uses **OpenSpec** methodology. All changes must follow the spec-driven cycle:
-
-```
-/opsx:propose <change-name>  →  review specs  →  /opsx:apply  →  /verify  →  /opsx:archive
-```
-
-1. **Read specs first**: `openspec/specs/` is the single source of truth
-2. **Propose before coding**: Use `/opsx:propose <name>` to create a change proposal
-3. **Reference spec IDs in tests**: e.g., `// Validates REQ-1.1, Property 1`
-4. **Format before commit**: `find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs clang-format -i`
-5. **Run review before concluding major work**: use `/review` on meaningful changesets
-
-## Repository Operating Mode
-
-CuFlash-Attn is in a **final-governance** phase. Prefer short, explicit cleanup work over broad feature work:
-
-1. **Behavior or API change** → create or update an OpenSpec change first
-2. **Docs / workflow / metadata cleanup** → land it under an existing governance-oriented change when possible
-3. **Avoid speculative expansion** → if the work does not improve correctness, maintainability, docs quality, or handoff readiness, it is probably out of scope
-4. **Use `/review` before landing non-trivial diffs** → especially for cross-file refactors, workflow edits, and API-adjacent changes
-5. **Stay in one focused lane** → finish one OpenSpec change cleanly before starting another
-
-## Build & Test
+## Build, Test, and Format
 
 ```bash
 cmake --preset release
 cmake --build --preset release
 ctest --preset release --output-on-failure
+
+find . \( -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" \) \
+  ! -path "*/build/*" | xargs clang-format -i
+
+cd docs
+npm ci
+npm run docs:build
 ```
 
-## Editor / LSP Baseline
+## Scope Policy
 
-- Preferred local stack: `clangd` + CMake Tools (or any editor that consumes `.clangd`)
-- Generate `build/release/compile_commands.json` with `cmake --preset release`
-- Machines without `nvcc` can still edit docs, specs, workflow files, and most headers; `.clangd`
-  fallback flags provide partial completion/navigation, but full `.cu` diagnostics and configure/build
-  steps require a CUDA-capable toolchain
-- Keep editor tooling minimal. Do not add project-local MCP daemons or Copilot plugins unless a
-  recurring repository-wide problem cannot be solved by OpenSpec docs, CLI skills, `gh`, or the
-  existing workspace settings
+1. Preserve the current CUDA API surface and supported `head_dim` values: `32`, `64`, `128`.
+2. Prefer deleting stale workflow layers, duplicated docs, and unused scaffolding over extending them.
+3. Keep documentation aligned with the real repository structure and supported behavior.
+4. Use CMake presets; do not introduce parallel build systems or AI control frameworks.
+5. Work directly on the current branch unless a maintainer asks for a different flow.
+
+## Documentation and Docs Site
+
+- Keep GitHub Pages focused on product documentation, not process artifacts.
+- Record project history only in the root `CHANGELOG.md`.
+- If a page duplicates repository content without adding user value, remove or consolidate it.
 
 ## Code Style
 
-- **Format**: Google style via clang-format (`.clang-format`)
-- **Naming**: namespaces `lower_case`, classes `CamelCase`, functions `lower_case`
-- **Commits**: Conventional commits — `feat(scope): description`, `fix(scope): description`
+- `clang-format` with the repository `.clang-format`
+- namespaces `lower_case`, classes `CamelCase`, functions `lower_case`
+- return `FlashAttentionError` from public APIs instead of throwing exceptions
 
-## Branch Strategy
+## Review Checklist
 
-- Work directly on `master`
-- Use `git tag v0.x.x` for releases
-- Keep feature work in short-lived commits, not long-lived branches
-- Avoid branch and workflow sprawl; prefer one focused OpenSpec change at a time
-- Avoid `/fleet`-style parallel branch proliferation for this repository
+Before opening a PR, confirm:
+
+1. The build/test commands still make sense for the current environment.
+2. Documentation and workflow files describe what the repository actually does today.
+3. No deleted or deprecated process files are still linked from README, docs, or workflows.
