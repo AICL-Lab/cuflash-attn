@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(cuflash_attn VERSION 0.3.0 LANGUAGES CXX CUDA)
+project(cuflash_attn VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -32,7 +32,7 @@ option(ENABLE_FAST_MATH "Enable --use_fast_math (faster but less precise)" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer (debug builds only)" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (debug builds only)" OFF)
 
-# Source files - unified FP32/FP16 templates
+# Source files - unified FP32/FP16/BF16 templates
 set(SOURCES
     src/api/flash_attention_api.cu
     src/forward/flash_attention_forward_typed.cu
@@ -90,6 +90,7 @@ target_compile_options(cuflash_attn PRIVATE
     >
     $<$<COMPILE_LANGUAGE:CUDA>:
         --expt-relaxed-constexpr
+        --threads=0
         -Xcompiler=-Wall,-Wextra,-Wpedantic
         $<$<BOOL:${ENABLE_FAST_MATH}>:--use_fast_math>
     >

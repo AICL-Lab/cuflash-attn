@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <stdint.h>
@@ -318,6 +319,160 @@ __device__ __forceinline__ void store_tile_from_shared(const float* __restrict__
 }
 
 // =============================================================================
+// BF16 tile load/store
+// =============================================================================
+
+template<int BLOCK_ROWS, int BLOCK_COLS>
+__device__ __forceinline__ void load_tile_to_shared(const __nv_bfloat16* __restrict__ src,
+                                                    float* __restrict__ dst, int row_start,
+                                                    int col_start, int max_rows, int max_cols,
+                                                    int src_stride) {
+    const int tid = threadIdx.x;
+    const int num_threads = blockDim.x;
+    const int total_elements = BLOCK_ROWS * BLOCK_COLS;
+
+    const bool can_vectorize =
+        (BLOCK_COLS % 2 == 0) && (src_stride % 2 == 0) && (col_start % 2 == 0) && is_aligned_8(src);
+
+    if constexpr (BLOCK_COLS % 2 == 0) {
+        if (can_vectorize) {
+            const int total_vec = total_elements / 2;
+            for (int i = tid; i < total_vec; i += num_threads) {
+                int elem_idx = i * 2;
+                int local_row = elem_idx / BLOCK_COLS;
+                int local_col = elem_idx % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                if (global_row < max_rows && global_col + 1 < max_cols) {
+                    __nv_bfloat162 val = *reinterpret_cast<const __nv_bfloat162*>(
+                        &src[global_row * src_stride + global_col]);
+                    dst[local_row * BLOCK_COLS + local_col] =
+                        TypeAdapter<__nv_bfloat16>::to_compute(val.x);
+                    dst[local_row * BLOCK_COLS + local_col + 1] =
+                        TypeAdapter<__nv_bfloat16>::to_compute(val.y);
+                } else if (global_row < max_rows) {
+                    dst[local_row * BLOCK_COLS + local_col] =
+                        (global_col < max_cols)
+                            ? TypeAdapter<__nv_bfloat16>::to_compute(
+                                  src[global_row * src_stride + global_col])
+                            : 0.0f;
+                    dst[local_row * BLOCK_COLS + local_col + 1] =
+                        (global_col + 1 < max_cols)
+                            ? TypeAdapter<__nv_bfloat16>::to_compute(
+                                  src[global_row * src_stride + global_col + 1])
+                            : 0.0f;
+                } else {
+                    dst[local_row * BLOCK_COLS + local_col] = 0.0f;
+                    dst[local_row * BLOCK_COLS + local_col + 1] = 0.0f;
+                }
+            }
+        } else {
+            for (int i = tid; i < total_elements; i += num_threads) {
+                int local_row = i / BLOCK_COLS;
+                int local_col = i % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                if (global_row < max_rows && global_col < max_cols) {
+                    dst[local_row * BLOCK_COLS + local_col] =
+                        TypeAdapter<__nv_bfloat16>::to_compute(
+                            src[global_row * src_stride + global_col]);
+                } else {
+                    dst[local_row * BLOCK_COLS + local_col] = 0.0f;
+                }
+            }
+        }
+    } else {
+        for (int i = tid; i < total_elements; i += num_threads) {
+            int local_row = i / BLOCK_COLS;
+            int local_col = i % BLOCK_COLS;
+            int global_row = row_start + local_row;
+            int global_col = col_start + local_col;
+
+            if (global_row < max_rows && global_col < max_cols) {
+                dst[local_row * BLOCK_COLS + local_col] =
+                    TypeAdapter<__nv_bfloat16>::to_compute(
+                        src[global_row * src_stride + global_col]);
+            } else {
+                dst[local_row * BLOCK_COLS + local_col] = 0.0f;
+            }
+        }
+    }
+}
+
+template<int BLOCK_ROWS, int BLOCK_COLS>
+__device__ __forceinline__ void store_tile_from_shared(const float* __restrict__ src,
+                                                       __nv_bfloat16* __restrict__ dst,
+                                                       int row_start, int col_start, int max_rows,
+                                                       int max_cols, int dst_stride) {
+    const int tid = threadIdx.x;
+    const int num_threads = blockDim.x;
+    const int total_elements = BLOCK_ROWS * BLOCK_COLS;
+
+    const bool can_vectorize =
+        (BLOCK_COLS % 2 == 0) && (dst_stride % 2 == 0) && (col_start % 2 == 0) && is_aligned_8(dst);
+
+    if constexpr (BLOCK_COLS % 2 == 0) {
+        if (can_vectorize) {
+            const int total_vec = total_elements / 2;
+            for (int i = tid; i < total_vec; i += num_threads) {
+                int elem_idx = i * 2;
+                int local_row = elem_idx / BLOCK_COLS;
+                int local_col = elem_idx % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                if (global_row < max_rows && global_col + 1 < max_cols) {
+                    __nv_bfloat162 val;
+                    val.x = TypeAdapter<__nv_bfloat16>::from_compute(
+                        src[local_row * BLOCK_COLS + local_col]);
+                    val.y = TypeAdapter<__nv_bfloat16>::from_compute(
+                        src[local_row * BLOCK_COLS + local_col + 1]);
+                    *reinterpret_cast<__nv_bfloat162*>(&dst[global_row * dst_stride + global_col]) =
+                        val;
+                } else if (global_row < max_rows) {
+                    if (global_col < max_cols)
+                        dst[global_row * dst_stride + global_col] =
+                            TypeAdapter<__nv_bfloat16>::from_compute(
+                                src[local_row * BLOCK_COLS + local_col]);
+                    if (global_col + 1 < max_cols)
+                        dst[global_row * dst_stride + global_col + 1] =
+                            TypeAdapter<__nv_bfloat16>::from_compute(
+                                src[local_row * BLOCK_COLS + local_col + 1]);
+                }
+            }
+        } else {
+            for (int i = tid; i < total_elements; i += num_threads) {
+                int local_row = i / BLOCK_COLS;
+                int local_col = i % BLOCK_COLS;
+                int global_row = row_start + local_row;
+                int global_col = col_start + local_col;
+
+                if (global_row < max_rows && global_col < max_cols) {
+                    dst[global_row * dst_stride + global_col] =
+                        TypeAdapter<__nv_bfloat16>::from_compute(
+                            src[local_row * BLOCK_COLS + local_col]);
+                }
+            }
+        }
+    } else {
+        for (int i = tid; i < total_elements; i += num_threads) {
+            int local_row = i / BLOCK_COLS;
+            int local_col = i % BLOCK_COLS;
+            int global_row = row_start + local_row;
+            int global_col = col_start + local_col;
+
+            if (global_row < max_rows && global_col < max_cols) {
+                dst[global_row * dst_stride + global_col] =
+                    TypeAdapter<__nv_bfloat16>::from_compute(
+                        src[local_row * BLOCK_COLS + local_col]);
+            }
+        }
+    }
+}
+
+// =============================================================================
 // Matmul operations (shared memory tile operations)
 // =============================================================================
 
@@ -434,6 +589,12 @@ struct ForwardTilingConfig {
 
     static constexpr int NUM_THREADS = 128;
     static constexpr int WARP_SIZE = 32;
+
+    // Q + K + V + S + O + m + l
+    static constexpr size_t smem_bytes(int hd, int BM, int BN) {
+        return static_cast<size_t>(BM * hd + BN * hd + BN * hd + BM * BN + BM * hd + BM + BM) *
+               sizeof(float);
+    }
 };
 
 /// Tiling configuration for backward pass.
@@ -453,6 +614,20 @@ struct BackwardTilingConfig {
 
     static constexpr int NUM_THREADS = 128;
     static constexpr int WARP_SIZE = 32;
+
+    // Q + dO + K + V + S + dQ + L + D
+    static constexpr size_t dq_smem_bytes(int hd, int BM, int BN) {
+        return static_cast<size_t>(BM * hd + BM * hd + BN * hd + BN * hd + BM * BN + BM * hd +
+                                   BM + BM) *
+               sizeof(float);
+    }
+
+    // K + V + Q + dO + S + dK + dV + L + D
+    static constexpr size_t dkdv_smem_bytes(int hd, int BM, int BN) {
+        return static_cast<size_t>(BN * hd + BN * hd + BM * hd + BM * hd + BM * BN + BN * hd +
+                                   BN * hd + BM + BM) *
+               sizeof(float);
+    }
 };
 
 /// Supported head dimensions - single source of truth.
@@ -463,9 +638,6 @@ inline constexpr int SUPPORTED_HEAD_DIMS[] = {32, 64, 128};
 inline constexpr bool is_supported_head_dim(int head_dim) {
     return head_dim == 32 || head_dim == 64 || head_dim == 128;
 }
-
-// Legacy alias for backward compatibility
-using TilingConfig = ForwardTilingConfig;
 
 }  // namespace impl
 }  // namespace cuflash
