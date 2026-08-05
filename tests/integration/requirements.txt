@@ -1,5 +1,5 @@
 # Python Development Dependencies
 # Used for testing and development
 
-torch>=2.0.0
+torch>=2.13.0
 numpy>=1.24.0
