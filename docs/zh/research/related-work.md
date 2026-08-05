@@ -98,7 +98,7 @@
 | **年份** | 2023（arXiv）/ 2024（ICLR） |
 | **链接** | [arXiv:2307.08691](https://arxiv.org/abs/2307.08691) |
 | **核心贡献** | 提升 Warp-level 并行度，将 KV 序列维度进一步拆分以减少不同 warp 间的同步开销；引入序列并行（sequence parallelism），使 attention 计算在更大程度上与 GEMM 类算子达到同等并行效率。 |
-| **与本项目的关系** | 本项目 v0.3.0 基线主要参考 FlashAttention（NeurIPS 2022）的算法结构；FlashAttention-2 中的 warpgroup 划分与更细粒度工作分区仍是未来可评估的优化方向。 |
+| **与本项目的关系** | 本项目 v0.4.0 基线主要参考 FlashAttention（NeurIPS 2022）的算法结构；FlashAttention-2 中的 warpgroup 划分与更细粒度工作分区仍是未来可评估的优化方向。 |
 
 ---
 

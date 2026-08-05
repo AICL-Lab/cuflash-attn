@@ -1,0 +1,15 @@
+# Keep the Docker build context small and the layer cache stable.
+.git
+.github
+.vscode
+.claude
+
+# Build outputs and generated files
+build
+**/__pycache__
+*.pyc
+
+# Documentation site toolchain (not needed to build the library)
+docs/node_modules
+docs/.vitepress/cache
+docs/.vitepress/dist

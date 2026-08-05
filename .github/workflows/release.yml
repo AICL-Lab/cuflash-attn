@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., v0.3.0)'
+        description: 'Release version (e.g., v0.4.0)'
         required: true
         type: string
 
+# Only needs to create the release and upload assets; no package registry use.
 permissions:
   contents: write
-  packages: write
 
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
@@ -23,7 +23,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -31,14 +31,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get version from tag or input
+      - name: Resolve and validate version
         id: version
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            version="${GITHUB_REF#refs/tags/}"
           else
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            version="${VERSION_INPUT}"
           fi
+          if [[ ! "${version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid version '${version}' (expected vMAJOR.MINOR.PATCH[-prerelease])"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Install CUDA toolkit
         uses: Jimver/cuda-toolkit@v0.2.23
@@ -47,50 +54,52 @@ jobs:
           method: 'network'
           sub-packages: '["nvcc", "cudart", "cccl"]'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: docs/package-lock.json
-
-      - name: Configure CMake
-        run: cmake --preset release -DCMAKE_CUDA_ARCHITECTURES="80"
+      # Build for every supported architecture so the artifact runs from V100
+      # (sm_70) through H100 (sm_90), matching the README support matrix.
+      - name: Configure CMake (all supported architectures)
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CUDA_ARCHITECTURES="70;75;80;86;89;90"
 
       - name: Build library
-        run: cmake --build --preset release -j$(nproc)
+        run: cmake --build build -j"$(nproc)"
 
-      - name: Install Python test dependencies
-        run: python3 -m pip install -r tests/integration/requirements.txt
+      - name: Run host-side tests
+        # GPU numerical tests skip on this GPU-less runner (they run in the GPU
+        # workflow); this gate covers the build and the host smoke tests.
+        run: ctest --test-dir build --output-on-failure
 
-      - name: Run tests
-        run: ctest --preset release --output-on-failure
+      # Install into a staging prefix so the artifact carries the library, the
+      # public headers, and the CMake package config a downstream consumer needs.
+      - name: Stage install tree
+        run: cmake --install build --prefix staging/cuflash-attn
 
-      - name: Build docs
-        working-directory: docs
+      - name: Package release artifact
         run: |
-          npm ci
-          npm run docs:build
+          version="${{ steps.version.outputs.version }}"
+          asset="cuflash-attn-${version}-linux-x86_64.tar.gz"
+          tar -C staging -czf "${asset}" cuflash-attn
+          sha256sum "${asset}" > "${asset}.sha256"
+          echo "asset=${asset}" >> "$GITHUB_ENV"
 
-      - name: Generate changelog
+      - name: Generate changelog (since previous tag)
         id: changelog
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { data: commits } = await github.rest.repos.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100
-            });
-            
-            const changelog = commits.slice(0, 20).map(c => {
-              const sha = c.sha.substring(0, 7);
-              const message = c.commit.message.split('\n')[0];
-              return `- ${message} (${sha})`;
-            }).join('\n');
-            
-            return changelog;
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          prev_tag="$(git tag --list 'v*' --sort=-v:refname | grep -vx "${VERSION}" | head -n1 || true)"
+          if [[ -n "${prev_tag}" ]]; then
+            range="${prev_tag}..HEAD"
+          else
+            range="HEAD"
+          fi
+          {
+            echo "changes<<EOF"
+            git log --no-merges --pretty=format:'- %s (%h)' "${range}"
+            echo
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -99,29 +108,22 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           body: |
             ## CuFlash-Attn ${{ steps.version.outputs.version }}
-            
+
             ### Changes | 变更
-            ${{ steps.changelog.outputs.result }}
-            
-            ### Installation | 安装
-            
-            **English:**
+            ${{ steps.changelog.outputs.changes }}
+
+            ### Install | 安装
+            The attached archive contains the shared library, public headers,
+            and the CMake package config. Verify its integrity first:
             ```bash
-            git clone https://github.com/AICL-Lab/cuflash-attn.git
-            cd cuflash-attn
-            cmake --preset release
-            cmake --build --preset release
+            sha256sum -c ${{ env.asset }}.sha256
             ```
-            
-            **中文:**
+            Or build from source:
             ```bash
-            git clone https://github.com/AICL-Lab/cuflash-attn.git
-            cd cuflash-attn
-            cmake --preset release
-            cmake --build --preset release
+            cmake --preset release && cmake --build --preset release
             ```
           files: |
-            build/release/libcuflash_attn.so
+            ${{ env.asset }}
+            ${{ env.asset }}.sha256
           draft: false
           prerelease: false
-          generate_release_notes: true

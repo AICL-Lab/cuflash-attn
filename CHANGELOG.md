@@ -9,20 +9,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.5.0] - 2026-08-05
+
+### Added
+
+- **Tensor-core forward pass** (`src/forward/flash_attention_forward_wmma.cu`)
+  - Phase 2 (forward) of `docs/*/design/tensor-core-migration.md`: FP16
+    (sm_70+) and BF16 (sm_80+) forward kernels built on `nvcuda::wmma`
+    `m16n16k16` fragments with FP32 accumulation; Q/K/V tiles stay in the
+    input precision in shared memory.
+  - Runtime dispatch selects the WMMA kernel by compute capability and falls
+    back to the scalar kernel on unsupported architectures or missing binaries.
+  - BF16 forward/backward benchmarks and PyTorch-comparison cases (guarded by
+    device capability).
+
 ### Changed
 
-- Removed AI control framework directories and stale governance scaffolding (`openspec`, `trellis`, `superpowers`, and related tool overlays).
-- Simplified contributor guidance, Copilot instructions, and pull request metadata to match the real repository workflow.
-- Reduced GitHub Pages scope to product documentation; changelog history now lives only in the root `CHANGELOG.md`.
-- Removed docs-site spec mirrors, release-note mirrors, and AI planning artifacts that duplicated repository content.
-- Removed stale README references to the deleted `AGENTS.md` workflow document and replaced leftover SDD branding with lean repository wording.
-- Removed `.claude`/`CLAUDE.local.md` ignore rules that only served deleted AI tooling overlays.
-- Simplified the GitHub Pages landing page links so the docs site no longer surfaces changelog navigation.
-- Fixed CUDA preset validation on fresh Ubuntu environments by documenting and working through the required host-compiler/toolkit alignment.
-- Fixed backward kernel dispatch for `head_dim=64` by using a smaller shared-memory tiling path that fits current CUDA limits.
-- Fixed package-smoke consumption by exposing CUDA headers through the exported target and simplifying the downstream smoke project to a pure C++ consumer.
-- Fixed the FP16 tile store test to validate half-rounding semantics instead of comparing against the original float with an unrealistically tight tolerance.
-- Fixed the optional PyTorch comparison script to skip cleanly when `torch` is not installed.
+- **BREAKING**: the `L` (logsumexp) parameter of the FP16 and BFloat16
+  forward/backward APIs (C++ namespace and C ABI) is now `float*` instead of
+  `half*` / `__nv_bfloat16*`. logsumexp is always stored in FP32 because the
+  backward pass reconstructs softmax probabilities as `exp(S - L)`; rounding
+  `L` to half precision systematically corrupts the gradients. This matches the
+  reference FlashAttention, which keeps `softmax_lse` in FP32. Callers that
+  passed a reduced-precision `L` buffer must allocate a `float` buffer of shape
+  `[batch_size, num_heads, seq_len]` instead.
+
+### Fixed
+
+- Forward/backward launch functions now fall back to smaller tiles at runtime
+  when the device's dynamic shared-memory cap (e.g. sm_75, 64 KB) cannot hold
+  the primary tiling, instead of returning `CUDA_ERROR`.
+- The backward pass allocates its `D` workspace with stream-ordered
+  `cudaMallocAsync`/`cudaFreeAsync`, removing a data race when one host thread
+  issues backward calls on multiple streams (the old thread-local cache was
+  shared across streams).
+- The forward online-softmax loop computes `exp()` once per score element
+  instead of `HEAD_DIM` times.
+- FP16 benchmarks passed a `half*` logsumexp buffer (wrong type and half the
+  required size); logsumexp buffers are now allocated as FP32.
+
+### Notes
+
+- Minimum CUDA toolkit is now 11.2 (`cudaMallocAsync`).
+- CUDA 13.x removed sm_70 (Volta); build with CUDA 12.x to keep V100 support.
+
+---
+
+## [0.4.0] - 2026-07-28
+
+### ✨ Added | 新增
+
+- **BFloat16 support** (`include/cuflash/flash_attention.h`)
+  - BF16 forward and backward passes in both the C++ namespace API and the C ABI
+    (`cuflash_attention_{forward,backward}_bf16`).
+  - Internal accumulation remains FP32 for numerical stability.
+- **Public kernel primitive layer** (`include/cuflash/kernels/`)
+  - `matmul`, `online_softmax`, and `tile_io` primitives exposed as a standalone,
+    testable API surface (`cuflash::kernels::*`).
+
+### 🔧 Changed | 变更
+
+- Unified the FP32/FP16/BF16 forward and backward kernels into a single dtype
+  template (`flash_attention_{forward,backward}_typed.cu`) instead of three
+  near-duplicate implementations.
+- Adopted FlashAttention-2-style deferred normalization in the forward kernel:
+  the running output is kept unnormalized and divided by `l` once at the end,
+  removing a per-iteration division.
+- Centralized tiling configuration and supported-`head_dim` checks
+  (`src/kernels/impl/tile_io.cuh`) as a single source of truth.
+- Removed AI control framework directories and stale governance scaffolding
+  (`openspec`, `trellis`, `superpowers`, and related tool overlays).
+- Simplified contributor guidance, Copilot instructions, and pull request
+  metadata to match the real repository workflow.
+- Reduced GitHub Pages scope to product documentation; changelog history now
+  lives only in the root `CHANGELOG.md`.
+- Removed docs-site spec mirrors, release-note mirrors, and AI planning
+  artifacts that duplicated repository content.
+- Removed stale README references to the deleted `AGENTS.md` workflow document
+  and replaced leftover SDD branding with lean repository wording.
+- Removed `.claude`/`CLAUDE.local.md` ignore rules that only served deleted AI
+  tooling overlays.
+- Simplified the GitHub Pages landing page links so the docs site no longer
+  surfaces changelog navigation.
+
+### 🐛 Fixed | 修复
+
+- Fixed CUDA preset validation on fresh Ubuntu environments by documenting and
+  working through the required host-compiler/toolkit alignment.
+- Fixed backward kernel dispatch for `head_dim=64` by using a smaller
+  shared-memory tiling path that fits current CUDA limits.
+- Fixed package-smoke consumption by exposing CUDA headers through the exported
+  target and simplifying the downstream smoke project to a pure C++ consumer.
+- Fixed the FP16 tile store test to validate half-rounding semantics instead of
+  comparing against the original float with an unrealistically tight tolerance.
+- Fixed the optional PyTorch comparison script to skip cleanly when `torch` is
+  not installed.
 
 ---
 
@@ -209,6 +292,9 @@ This release introduces complete FP16 backward pass support and a thoroughly res
 
 | Version | Key Features | Release Date |
 |---------|--------------|--------------|
+| [0.5.0] | Tensor-core (WMMA) forward, FP32 logsumexp ABI, sm_75 tiling fallback, stream-ordered workspace | 2026-08-05 |
+| [0.4.0] | BF16 support, unified dtype templates, FA2 deferred normalization, public kernel primitives | 2026-07-28 |
+| [0.3.0] | Engineering cleanup, clangd/LSP tooling, contribution guides | 2026-04-24 |
 | [0.2.0] | FP16 backward, bilingual docs, troubleshooting guide | 2026-04-16 |
 | [0.1.0] | Complete docs, CPU-safe CI, HonKit site | 2026-03-13 |
 | [0.1.0-alpha.2] | Standardized CI, format checking | 2026-03-10 |
@@ -225,7 +311,8 @@ This release introduces complete FP16 backward pass support and a thoroughly res
 
 ---
 
-[Unreleased]: https://github.com/AICL-Lab/cuflash-attn/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/AICL-Lab/cuflash-attn/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/AICL-Lab/cuflash-attn/compare/v0.4.0...v0.5.0
 [0.2.0]: https://github.com/AICL-Lab/cuflash-attn/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AICL-Lab/cuflash-attn/releases/tag/v0.1.0
 [0.1.0-alpha.2]: https://github.com/AICL-Lab/cuflash-attn/releases/tag/v0.1.0-alpha.2

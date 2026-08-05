@@ -1,0 +1,59 @@
+name: GPU
+
+# Numerical correctness can only be verified on real hardware. GitHub-hosted
+# runners have no GPU, so the main CI workflow only compiles and skips the GPU
+# tests. This workflow runs the full numerical suite, the RapidCheck property
+# tests, and compute-sanitizer on a self-hosted runner with an NVIDIA GPU.
+#
+# Requirements for the runner (labelled: self-hosted, linux, gpu):
+#   - NVIDIA GPU with a compatible driver
+#   - CUDA toolkit (nvcc, cudart, compute-sanitizer) on PATH
+#   - CMake >= 3.20, Ninja, a C++17 host compiler, Python 3
+#
+# Until such a runner is registered this workflow stays queued; trigger it
+# manually with workflow_dispatch once hardware is available.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday early morning (off-minute to avoid fleet contention).
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpu-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gpu-test:
+    name: GPU numerical tests + compute-sanitizer
+    runs-on: [self-hosted, linux, gpu]
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure CMake (Release + RapidCheck)
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DENABLE_RAPIDCHECK=ON
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Run numerical test suite (GPU)
+        # On a GPU runner these cases actually execute instead of skipping.
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run compute-sanitizer
+        run: ./scripts/run_compute_sanitizer.sh build
+
+      - name: Install PyTorch for comparison tests
+        run: python3 -m pip install -r tests/integration/requirements.txt
+
+      - name: Run PyTorch comparison
+        run: python3 tests/integration/test_pytorch_comparison.py

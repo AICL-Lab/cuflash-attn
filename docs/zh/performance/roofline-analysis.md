@@ -1,6 +1,6 @@
 # Roofline 分析
 
-> **版本**: v0.3.0  
+> **版本**: v0.4.0（标量路径分析快照；WMMA 路径见 tensor-core 迁移文档）  
 > **适用范围**: CuFlash-Attn 前向/反向 kernel，FP16，causal/non-causal  
 > **前置阅读**: [基准测试](./benchmarks.md)（含实测带宽与耗时数据）
 
@@ -94,7 +94,7 @@ $$
 
 ### 3.2 FlashAttention 的计算与访存
 
-FlashAttention（以本实现 v0.3.0 为例，采用 online softmax + tiling，无中间矩阵 materialize）的核心不变量为：
+FlashAttention（以本实现 v0.4.0 为例，采用 online softmax + tiling，无中间矩阵 materialize）的核心不变量为：
 
 - 将 $Q, K, V$ 分块为 SRAM 可容纳的 tile（如 $B_r \times d$, $B_c \times d$）。
 - 仅输出 $O$ 写回 HBM；中间量 $S, P$ 在 SRAM 内生成、消费、丢弃。
@@ -200,7 +200,7 @@ $$
 \underbrace{B_r \times d}_{Q\;tile} + \underbrace{2 \times B_c \times d}_{K,V\;tiles} + \underbrace{B_r \times B_c}_{S\;tile} + \underbrace{B_r}_{m\;vector} + \underbrace{B_r}_{l\;vector} + \underbrace{B_r \times d}_{O\;accumulator} \leq M_{SRAM}
 $$
 
-本实现 v0.3.0 选取 $B_r = 128, B_c = 128, d=64$，则 SRAM 占用约为：
+本实现 v0.4.0 选取 $B_r = 128, B_c = 128, d=64$，则 SRAM 占用约为：
 
 $$
 128 \times 64 + 2 \times 128 \times 64 + 128 \times 128 + 128 + 128 + 128 \times 64 = 8\text{K} + 16\text{K} + 16\text{K} + 0.5\text{K} + 0.5\text{K} + 8\text{K} \approx 49\text{KB}
@@ -250,7 +250,7 @@ $$
 | H100 | 8,192 | 5.3 | Deep memory-bound | 56× 低于 ridge |
 | H100 | 16,384 | 6.0 | Deep memory-bound | 49× 低于 ridge |
 
-> **关键洞察**: $AI_{eff}$ 仅约 4–6 FLOP/Byte，远低于所有 GPU 的 ridge point。这意味着本实现 v0.3.0 的**有效**性能受限于带宽，但带宽利用率随 seq_len 增加而提高（因为固定开销被摊薄）。
+> **关键洞察**: $AI_{eff}$ 仅约 4–6 FLOP/Byte，远低于所有 GPU 的 ridge point。这意味着本实现 v0.4.0 的**有效**性能受限于带宽，但带宽利用率随 seq_len 增加而提高（因为固定开销被摊薄）。
 
 ### 5.3 为什么 $AI_{eff}$ 与理论 $AI_{FA}$ 差距巨大
 
@@ -271,7 +271,7 @@ $$
 
 若以 $N=8192$ 计算，$AI_{HBM\text{-}only} \approx 8192$ FLOP/Byte，仍高于 ridge point。实测差距主要来源于：
 
-1. **本实现 v0.3.0 尚未实现 FlashAttention-2 的 split-K / sequence-parallel 优化**，导致 $K, V$ 的重载次数高于理论下限。
+1. **本实现 v0.4.0 尚未实现 FlashAttention-2 的 split-K / sequence-parallel 优化**，导致 $K, V$ 的重载次数高于理论下限。
 2. **Google Benchmark 的 timer 精度与 warm-up 策略**在短序列下引入系统误差。
 3. **FP16 的 Tensor Core 利用率**: 本实现的 warp-level GEMM 使用手工编排的 HMMA 指令，但在小 $d$（32/64）时无法充分填满 MMA 单元，导致实际算力远低于 $\pi_{peak}$。
 
@@ -306,7 +306,7 @@ Performance (TFLOPS)
       1    10    50   100   153   500   1000
 
 Standard Attention (seq=16K):  X @ AI≈64,  P≈0.13 TFLOPS
-FlashAttention v0.3.0 (seq=16K): O @ AI≈5*  P≈9.3 TFLOPS
+FlashAttention v0.4.0 (seq=16K): O @ AI≈5*  P≈9.3 TFLOPS
 FlashAttention-2 (参考):        △ @ AI≈80*, P≈80+ TFLOPS
 
 * 有效 AI（含全部内存层级）
@@ -314,7 +314,7 @@ FlashAttention-2 (参考):        △ @ AI≈80*, P≈80+ TFLOPS
 
 ### 6.2 对比汇总表
 
-| 维度 | 标准 Attention (Materialized) | CuFlash-Attn v0.3.0 | FlashAttention-2/3 (生产级) |
+| 维度 | 标准 Attention (Materialized) | CuFlash-Attn v0.4.0 | FlashAttention-2/3 (生产级) |
 |:---|:---|:---|:---|
 | $AI$ (HBM-only) | $O(d) \approx 64$ | $O(N/d) \approx 5000$ | $O(N/B_c) \approx 5000$ |
 | $AI_{eff}$ (全内存层级) | $\approx 3$–$5$ | $\approx 4$–$6$ | $\approx 50$–$150$ |
@@ -328,7 +328,7 @@ FlashAttention-2 (参考):        △ @ AI≈80*, P≈80+ TFLOPS
 
 1. **标准 Attention** 位于 Roofline 极左下角。即使给它无限算力，也无法突破 $P = \beta \times AI$ 的斜线限制；且 $AI$ 固定为 $O(d)$，不随 $N$ 增长，**不具备 scaling 潜力**。
 
-2. **CuFlash-Attn v0.3.0** 通过 tiling 将 $AI$ 提升数个数量级，但受限于参考级实现的手工程度，未能完全消除多余 HBM 流量与 warp 闲置。其性能位于 Roofline 斜线上段，距离 ridge point 仍有一个数量级的差距。
+2. **CuFlash-Attn v0.4.0** 通过 tiling 将 $AI$ 提升数个数量级，但受限于参考级实现的手工程度，未能完全消除多余 HBM 流量与 warp 闲置。其性能位于 Roofline 斜线上段，距离 ridge point 仍有一个数量级的差距。
 
 3. **FlashAttention-2/3** 通过以下手段进一步右移 $AI$：
    - **Split-K / Sequence Parallel**: 将 $K, V$ 的冗余加载分摊到多个 warp group。
@@ -344,7 +344,7 @@ FlashAttention-2 (参考):        △ @ AI≈80*, P≈80+ TFLOPS
 
 | 阶段 | 目标 $AI_{eff}$ | 手段 | 预期 A100 带宽利用率 | 难度 |
 |:---|:---:|:---|:---:|:---:|
-| v0.3.0 (当前) | 4–6 | 基础 tiling + online softmax | 60%–96% | 基线 |
+| v0.4.0 (当前) | 4–6 | 基础 tiling + online softmax | 60%–96% | 基线 |
 | v0.4.0 | 15–25 | `cp.async` 预取、更优 warp 调度、causal mask 边界优化 | 85%–100% | 中 |
 | v0.5.0 | 40–80 | Split-K sequence parallel、warp-group 级 reduction、减少 bank conflict | 95%–110% | 高 |
 | v1.0.0 (未来) | 100+ | CUTLASS 集成或 TMA/WGMMA 重写（Hopper） | 接近 ridge point | 极高 |

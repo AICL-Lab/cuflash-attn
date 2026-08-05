@@ -22,8 +22,8 @@ Complete guide for building CuFlash-Attn from source.
 
 | Dependency | Minimum Version | Notes |
 |------------|-----------------|-------|
-| **CUDA Toolkit** | 11.0 | Includes nvcc compiler and CUDA libraries |
-| **CMake** | 3.18 | Build system generator |
+| **CUDA Toolkit** | 11.2 | Includes nvcc compiler and CUDA libraries. CUDA 13.x dropped sm_70 (Volta); build with CUDA 12.x to keep V100 support |
+| **CMake** | 3.18 (3.20 for presets) | Build system generator |
 | **C++ Compiler** | C++17 | GCC 7+, Clang 5+, MSVC 2017+ |
 | **Python** (optional) | 3.8+ | For PyTorch comparison tests |
 | **PyTorch** (optional) | 2.0+ | For verification tests |

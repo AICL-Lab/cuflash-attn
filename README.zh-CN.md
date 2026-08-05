@@ -18,7 +18,7 @@ CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育
 
 ### 项目状态
 
-- **状态**：稳定的 `v0.3.0` 代码库，正在做维护收敛
+- **状态**：稳定的 `v0.5.0` 代码库，正在做维护收敛
 - **权威入口**：公开头文件、实现、测试和用户文档
 - **定位**：面向学习、审计与轻量集成的精简参考实现
 - **当前重点**：删除过时流程层、收紧文档并修复长尾缺陷，而不是扩展新功能
@@ -68,8 +68,8 @@ CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育
 ### 环境要求
 
 - **GPU**: NVIDIA GPU，计算能力 7.0+（V100、RTX 20/30/40、A100、H100）
-- **CUDA Toolkit**: 11.0 或更高版本
-- **CMake**: 3.18 或更高版本
+- **CUDA Toolkit**: 11.8 或更高版本（推荐 12.x；sm_90/Hopper 需要 11.8+）
+- **CMake**: 3.18 或更高版本（使用 CMake preset 需 3.20+）
 - **编译器**: GCC 7+、Clang 5+ 或 MSVC 2017+（需要 C++17 支持）
 
 ### 方案 1：源码编译
@@ -97,7 +97,7 @@ docker build -t cuflash-attn .
 docker run --gpus all -it cuflash-attn
 
 # 容器内运行基准测试
-./build/release/benchmarks/cuflash_attn_bench
+./cuflash_attn_bench
 ```
 
 ### 第一个 C++ 程序
@@ -233,7 +233,7 @@ print(f"输出形状: {O.shape}, 平均值: {O.mean().item():.4f}")
 ```bash
 cmake --preset release
 cmake --build --preset release
-./build/release/benchmarks/cuflash_attn_bench
+./build/release/cuflash_attn_bench
 ```
 
 ---
@@ -309,14 +309,14 @@ cuflash-attn/
 │   ├── backward/               # 反向传播内核实现
 │   └── kernels/                # 内部内核工具（.cuh）
 ├── tests/                      # 测试套件
-│   ├── unit/                   # 单元测试（8 个文件）
+│   ├── unit/                   # 单元测试（10 个文件）
 │   ├── integration/            # 集成测试 + PyTorch 对比
 │   └── package_smoke/          # 包冒烟测试
 ├── CMakeLists.txt              # 主构建配置
 ├── CMakePresets.json           # 构建预设（release、debug、asan）
 ├── Dockerfile                  # 容器构建
 └── .github/workflows/          # CI/CD 工作流
-    ├── ci.yml                  # 矩阵构建、测试、基准测试
+    ├── ci.yml                  # 多配置构建矩阵与测试
     ├── codeql.yml              # 安全扫描
     ├── pages.yml               # 文档部署
     └── release.yml             # 发布自动化
@@ -342,9 +342,9 @@ ctest --preset release -R PyTorch        # PyTorch 对比测试（需要 GPU + P
 ### 代码质量工具
 
 - ✅ **clang-format**: 自动化代码格式化（CI 强制执行）
-- ✅ **clang-tidy**: 静态分析，50+ 检查
+- ✅ **clang-tidy**: 静态分析，50+ 检查（host 源文件在 CI 中强制执行）
 - ✅ **CodeQL**: 每周安全扫描
-- ✅ **Sanitizers**: AddressSanitizer & UBSan 支持（调试构建）
+- ✅ **Sanitizers**: AddressSanitizer & UBSan（CI 构建矩阵）+ compute-sanitizer（GPU workflow）
 
 ```bash
 # 使用 AddressSanitizer 构建
@@ -377,8 +377,8 @@ find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs cla
 cmake --preset release && cmake --build --preset release
 ctest --preset release --output-on-failure
 
-# 可选：运行 clang-tidy
-clang-tidy src/api/flash_attention_api.cu -- -Iinclude
+# 可选：运行 clang-tidy（host 源文件）
+./scripts/run_clang_tidy.sh build/release
 ```
 
 📋 **详细指南**: 请参见 [CONTRIBUTING.md](CONTRIBUTING.md)

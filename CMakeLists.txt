@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(cuflash_attn VERSION 0.4.0 LANGUAGES CXX CUDA)
+project(cuflash_attn VERSION 0.5.0 LANGUAGES CXX CUDA)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -16,7 +16,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # CUDA architecture (configurable, default to common architectures)
 if(NOT CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 80 86)  # A100 + RTX 30xx/40xx as default
+    set(CMAKE_CUDA_ARCHITECTURES 80 86)  # A100 + RTX 30xx as default
 endif()
 
 # Find CUDA
@@ -36,6 +36,7 @@ option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (debug builds only)" OFF)
 set(SOURCES
     src/api/flash_attention_api.cu
     src/forward/flash_attention_forward_typed.cu
+    src/forward/flash_attention_forward_wmma.cu
     src/backward/flash_attention_backward_typed.cu
     src/kernels/tile_io.cu
     src/kernels/matmul.cu
@@ -119,8 +120,7 @@ if(BUILD_TESTS)
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG        v1.14.0
-        GIT_SHALLOW    TRUE
+        GIT_TAG        f8d7d77c06936315286eb55f8de22cd23c188571  # v1.14.0
     )
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
@@ -172,6 +172,17 @@ if(BUILD_TESTS)
         CXX_STANDARD_REQUIRED ON
     )
 
+    # Sanitize the test drivers too, not just the library: host-side bugs most
+    # often surface in the test harness code. SANITIZER_FLAGS is populated by
+    # the ENABLE_ASAN/ENABLE_UBSAN block above.
+    if(ENABLE_ASAN OR ENABLE_UBSAN)
+        foreach(_san_target cuflash_attn_tests cuflash_attn_api_smoke)
+            target_compile_options(${_san_target} PRIVATE ${SANITIZER_FLAGS}
+                                                           -fno-omit-frame-pointer)
+            target_link_options(${_san_target} PRIVATE ${SANITIZER_FLAGS})
+        endforeach()
+    endif()
+
     if(BUILD_TESTING)
         add_test(NAME cuflash_attn_api_smoke COMMAND cuflash_attn_api_smoke)
 
@@ -202,8 +213,7 @@ if(BUILD_BENCHMARKS)
     FetchContent_Declare(
         benchmark
         GIT_REPOSITORY https://github.com/google/benchmark.git
-        GIT_TAG v1.8.3
-        GIT_SHALLOW TRUE
+        GIT_TAG        344117638c8ff7e239044fd0fa7085839fc03021  # v1.8.3
     )
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)

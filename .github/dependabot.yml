@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Keep GitHub Actions pinned versions up to date.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci
+
+  # Documentation site (VitePress) dependencies.
+  - package-ecosystem: npm
+    directory: "/docs"
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docs
+
+  # Python test dependencies (PyTorch comparison suite).
+  - package-ecosystem: pip
+    directory: "/tests/integration"
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - testing

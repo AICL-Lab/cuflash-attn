@@ -20,7 +20,7 @@ hero:
 
 <script setup>
 const stats = [
-  { value: 'v0.3.0', label: 'Stable' },
+  { value: 'v0.5.0', label: 'Stable' },
   { value: '99.9%', label: 'Memory Saved' },
   { value: '8.9x', label: 'Max Speedup' },
   { value: '0', label: 'Dependencies' }

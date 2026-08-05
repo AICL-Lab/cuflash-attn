@@ -20,7 +20,7 @@ hero:
 
 <script setup>
 const stats = [
-  { value: 'v0.3.0', label: '稳定版' },
+  { value: 'v0.5.0', label: '稳定版' },
   { value: '99.9%', label: '内存节省' },
   { value: '8.9x', label: '最大加速' },
   { value: '0', label: '依赖项' }

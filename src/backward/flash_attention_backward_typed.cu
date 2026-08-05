@@ -6,7 +6,6 @@
 #include "impl/online_softmax.cuh"
 #include "impl/tile_io.cuh"
 #include "kernel_launch_utils.cuh"
-#include "workspace_utils.cuh"
 
 namespace cuflash {
 
@@ -38,7 +37,7 @@ __global__ void __launch_bounds__(128)
 template<typename InputT, int BLOCK_M, int BLOCK_N, int HEAD_DIM>
 __global__ void __launch_bounds__(128)
     flash_attention_backward_dq_kernel(const InputT* __restrict__ Q, const InputT* __restrict__ K,
-                                       const InputT* __restrict__ V, const InputT* __restrict__ L,
+                                       const InputT* __restrict__ V, const float* __restrict__ L,
                                        const InputT* __restrict__ dO, const float* __restrict__ D,
                                        InputT* __restrict__ dQ, int seq_len, float scale,
                                        bool causal) {
@@ -48,7 +47,7 @@ __global__ void __launch_bounds__(128)
     const InputT* Q_ptr = Q + batch_head_idx * seq_len * HEAD_DIM;
     const InputT* K_ptr = K + batch_head_idx * seq_len * HEAD_DIM;
     const InputT* V_ptr = V + batch_head_idx * seq_len * HEAD_DIM;
-    const InputT* L_ptr = L + batch_head_idx * seq_len;
+    const float* L_ptr = L + batch_head_idx * seq_len;
     const InputT* dO_ptr = dO + batch_head_idx * seq_len * HEAD_DIM;
     const float* D_ptr = D + batch_head_idx * seq_len;
     InputT* dQ_ptr = dQ + batch_head_idx * seq_len * HEAD_DIM;
@@ -81,9 +80,7 @@ __global__ void __launch_bounds__(128)
     }
     for (int i = tid; i < BLOCK_M; i += num_threads) {
         int global_idx = q_start + i;
-        L_tile[i] = (global_idx < seq_len)
-                        ? impl::TypeAdapter<InputT>::to_compute(L_ptr[global_idx])
-                        : 0.0f;
+        L_tile[i] = (global_idx < seq_len) ? L_ptr[global_idx] : 0.0f;
         D_tile[i] = (global_idx < seq_len) ? D_ptr[global_idx] : 0.0f;
     }
     __syncthreads();
@@ -149,7 +146,7 @@ __global__ void __launch_bounds__(128)
 template<typename InputT, int BLOCK_M, int BLOCK_N, int HEAD_DIM>
 __global__ void __launch_bounds__(128)
     flash_attention_backward_dkdv_kernel(const InputT* __restrict__ Q, const InputT* __restrict__ K,
-                                         const InputT* __restrict__ V, const InputT* __restrict__ L,
+                                         const InputT* __restrict__ V, const float* __restrict__ L,
                                          const InputT* __restrict__ dO, const float* __restrict__ D,
                                          InputT* __restrict__ dK, InputT* __restrict__ dV,
                                          int seq_len, float scale, bool causal) {
@@ -159,7 +156,7 @@ __global__ void __launch_bounds__(128)
     const InputT* Q_ptr = Q + batch_head_idx * seq_len * HEAD_DIM;
     const InputT* K_ptr = K + batch_head_idx * seq_len * HEAD_DIM;
     const InputT* V_ptr = V + batch_head_idx * seq_len * HEAD_DIM;
-    const InputT* L_ptr = L + batch_head_idx * seq_len;
+    const float* L_ptr = L + batch_head_idx * seq_len;
     const InputT* dO_ptr = dO + batch_head_idx * seq_len * HEAD_DIM;
     const float* D_ptr = D + batch_head_idx * seq_len;
     InputT* dK_ptr = dK + batch_head_idx * seq_len * HEAD_DIM;
@@ -209,9 +206,7 @@ __global__ void __launch_bounds__(128)
 
         for (int i = tid; i < BLOCK_M; i += num_threads) {
             int global_idx = q_start + i;
-            L_tile[i] = (global_idx < seq_len)
-                            ? impl::TypeAdapter<InputT>::to_compute(L_ptr[global_idx])
-                            : 0.0f;
+            L_tile[i] = (global_idx < seq_len) ? L_ptr[global_idx] : 0.0f;
             D_tile[i] = (global_idx < seq_len) ? D_ptr[global_idx] : 0.0f;
         }
         __syncthreads();
@@ -323,77 +318,145 @@ template __global__ void compute_D_kernel<half, 128, 64>(const half*, const half
 template __global__ void compute_D_kernel<half, 128, 128>(const half*, const half*, float*, int);
 
 template __global__ void flash_attention_backward_dq_kernel<half, 64, 64, 32>(
-    const half*, const half*, const half*, const half*, const half*, const float*, half*, int,
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, int,
     float, bool);
 template __global__ void flash_attention_backward_dq_kernel<half, 32, 32, 64>(
-    const half*, const half*, const half*, const half*, const half*, const float*, half*, int,
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, int,
     float, bool);
 template __global__ void flash_attention_backward_dq_kernel<half, 16, 32, 128>(
-    const half*, const half*, const half*, const half*, const half*, const float*, half*, int,
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, int,
     float, bool);
 
 template __global__ void flash_attention_backward_dkdv_kernel<half, 64, 64, 32>(
-    const half*, const half*, const half*, const half*, const half*, const float*, half*, half*,
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, half*,
     int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<half, 32, 32, 64>(
-    const half*, const half*, const half*, const half*, const half*, const float*, half*, half*,
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, half*,
     int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<half, 16, 32, 128>(
-    const half*, const half*, const half*, const half*, const half*, const float*, half*, half*,
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, half*,
     int, float, bool);
 
 // Explicit template instantiations for BF16
 template __global__ void compute_D_kernel<__nv_bfloat16, 128, 32>(const __nv_bfloat16*,
-                                                                   const __nv_bfloat16*, float*,
-                                                                   int);
+                                                                  const __nv_bfloat16*, float*,
+                                                                  int);
 template __global__ void compute_D_kernel<__nv_bfloat16, 128, 64>(const __nv_bfloat16*,
+                                                                  const __nv_bfloat16*, float*,
+                                                                  int);
+template __global__ void compute_D_kernel<__nv_bfloat16, 128, 128>(const __nv_bfloat16*,
                                                                    const __nv_bfloat16*, float*,
                                                                    int);
-template __global__ void compute_D_kernel<__nv_bfloat16, 128, 128>(const __nv_bfloat16*,
-                                                                    const __nv_bfloat16*, float*,
-                                                                    int);
 
 template __global__ void flash_attention_backward_dq_kernel<__nv_bfloat16, 64, 64, 32>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*,
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
     const __nv_bfloat16*, const float*, __nv_bfloat16*, int, float, bool);
 template __global__ void flash_attention_backward_dq_kernel<__nv_bfloat16, 32, 32, 64>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*,
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
     const __nv_bfloat16*, const float*, __nv_bfloat16*, int, float, bool);
 template __global__ void flash_attention_backward_dq_kernel<__nv_bfloat16, 16, 32, 128>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*,
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
     const __nv_bfloat16*, const float*, __nv_bfloat16*, int, float, bool);
 
 template __global__ void flash_attention_backward_dkdv_kernel<__nv_bfloat16, 64, 64, 32>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*,
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
     const __nv_bfloat16*, const float*, __nv_bfloat16*, __nv_bfloat16*, int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<__nv_bfloat16, 32, 32, 64>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*,
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
     const __nv_bfloat16*, const float*, __nv_bfloat16*, __nv_bfloat16*, int, float, bool);
 template __global__ void flash_attention_backward_dkdv_kernel<__nv_bfloat16, 16, 32, 128>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*,
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
+    const __nv_bfloat16*, const float*, __nv_bfloat16*, __nv_bfloat16*, int, float, bool);
+
+namespace {
+
+// RAII device buffer freed with cudaFreeAsync so the free is stream-ordered.
+struct AsyncFloatBuffer {
+    float* ptr = nullptr;
+    cudaStream_t stream = 0;
+
+    FlashAttentionError alloc(size_t elements, cudaStream_t s) {
+        stream = s;
+        cudaError_t err = cudaMallocAsync(&ptr, elements * sizeof(float), s);
+        if (err != cudaSuccess) {
+            ptr = nullptr;
+            return err == cudaErrorMemoryAllocation ? FlashAttentionError::OUT_OF_MEMORY
+                                                    : FlashAttentionError::CUDA_ERROR;
+        }
+        return FlashAttentionError::SUCCESS;
+    }
+
+    ~AsyncFloatBuffer() {
+        if (ptr != nullptr) {
+            cudaFreeAsync(ptr, stream);
+        }
+    }
+};
+
+}  // namespace
+
+// Fallback tilings for GPUs with a small shared-memory cap (e.g. sm_75).
+
+template __global__ void flash_attention_backward_dq_kernel<float, 32, 32, 32>(
+    const float*, const float*, const float*, const float*, const float*, const float*, float*, int,
+    float, bool);
+template __global__ void flash_attention_backward_dq_kernel<float, 16, 16, 128>(
+    const float*, const float*, const float*, const float*, const float*, const float*, float*, int,
+    float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<float, 32, 32, 32>(
+    const float*, const float*, const float*, const float*, const float*, const float*, float*,
+    float*, int, float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<float, 16, 16, 128>(
+    const float*, const float*, const float*, const float*, const float*, const float*, float*,
+    float*, int, float, bool);
+
+template __global__ void flash_attention_backward_dq_kernel<half, 32, 32, 32>(
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, int,
+    float, bool);
+template __global__ void flash_attention_backward_dq_kernel<half, 16, 16, 128>(
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, int,
+    float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<half, 32, 32, 32>(
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, half*,
+    int, float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<half, 16, 16, 128>(
+    const half*, const half*, const half*, const float*, const half*, const float*, half*, half*,
+    int, float, bool);
+
+template __global__ void flash_attention_backward_dq_kernel<__nv_bfloat16, 32, 32, 32>(
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
+    const __nv_bfloat16*, const float*, __nv_bfloat16*, int, float, bool);
+template __global__ void flash_attention_backward_dq_kernel<__nv_bfloat16, 16, 16, 128>(
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
+    const __nv_bfloat16*, const float*, __nv_bfloat16*, int, float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<__nv_bfloat16, 32, 32, 32>(
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
+    const __nv_bfloat16*, const float*, __nv_bfloat16*, __nv_bfloat16*, int, float, bool);
+template __global__ void flash_attention_backward_dkdv_kernel<__nv_bfloat16, 16, 16, 128>(
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const float*,
     const __nv_bfloat16*, const float*, __nv_bfloat16*, __nv_bfloat16*, int, float, bool);
 
 // Unified launch function - single generic implementation for all dtypes
 template<typename InputT>
 FlashAttentionError launch_flash_attention_backward_typed(
-    const InputT* Q, const InputT* K, const InputT* V, const InputT* O, const InputT* L,
+    const InputT* Q, const InputT* K, const InputT* V, const InputT* O, const float* L,
     const InputT* dO, InputT* dQ, InputT* dK, InputT* dV, int batch_size, int num_heads,
     int seq_len, int head_dim, float scale, bool causal, cudaStream_t stream) {
     using Config = impl::BackwardTilingConfig;
 
     int batch_heads = batch_size * num_heads;
 
-    DeviceFloatWorkspace& ws = workspace::get_thread_local_workspace();
+    // Stream-ordered allocation: each call gets its own D buffer tied to the
+    // caller's stream, so concurrent backward calls on different streams never
+    // share one buffer, and the memory is only reused after every kernel
+    // queued before the free on this stream has completed.
+    AsyncFloatBuffer d_buffer;
     FlashAttentionError workspace_status =
-        ws.reserve(static_cast<size_t>(batch_heads) * static_cast<size_t>(seq_len));
+        d_buffer.alloc(static_cast<size_t>(batch_heads) * static_cast<size_t>(seq_len), stream);
     if (workspace_status != FlashAttentionError::SUCCESS) {
         return workspace_status;
     }
-
-    float* D = ws.data();
-    if (D == nullptr) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
+    float* D = d_buffer.ptr;
 
     // Phase 1: compute D = rowsum(dO * O)
     int d_blocks = (seq_len + 127) / 128;
@@ -413,117 +476,117 @@ FlashAttentionError launch_flash_attention_backward_typed(
     }
 
     // Phase 2: compute dQ and dK/dV
-    dim3 block(Config::NUM_THREADS);
-    FlashAttentionError status = FlashAttentionError::SUCCESS;
+    int max_dynamic_smem = 0;
+    FlashAttentionError status = query_max_dynamic_shared_memory_per_block(&max_dynamic_smem);
+    if (status != FlashAttentionError::SUCCESS) {
+        return status;
+    }
 
+    // Pick the largest tiling whose shared memory (both kernels) fits this
+    // device, falling back to smaller tiles on low-cap GPUs (sm_75: 64 KB).
     int BM, BN;
     if (head_dim == 32) {
         BM = Config::BLOCK_M;
         BN = Config::BLOCK_N;
+        const size_t dq_need = Config::dq_smem_bytes(head_dim, BM, BN);
+        const size_t dkdv_need = Config::dkdv_smem_bytes(head_dim, BM, BN);
+        const size_t need = dq_need > dkdv_need ? dq_need : dkdv_need;
+        if (need > static_cast<size_t>(max_dynamic_smem)) {
+            BM = Config::BLOCK_M_SMALL;
+            BN = Config::BLOCK_N_SMALL;
+        }
     } else if (head_dim == 64) {
         BM = Config::BLOCK_M_HD64;
         BN = Config::BLOCK_N_HD64;
     } else {
         BM = Config::BLOCK_M_HD128;
         BN = Config::BLOCK_N_HD128;
+        const size_t dq_need = Config::dq_smem_bytes(head_dim, BM, BN);
+        const size_t dkdv_need = Config::dkdv_smem_bytes(head_dim, BM, BN);
+        const size_t need = dq_need > dkdv_need ? dq_need : dkdv_need;
+        if (need > static_cast<size_t>(max_dynamic_smem)) {
+            BN = Config::BLOCK_N_HD128_SMALL;
+        }
     }
 
-    int num_q_blocks = (seq_len + BM - 1) / BM;
-    int num_kv_blocks = (seq_len + BN - 1) / BN;
-    dim3 dq_grid(num_q_blocks, batch_heads);
-    dim3 dkdv_grid(num_kv_blocks, batch_heads);
-    size_t dq_smem = Config::dq_smem_bytes(head_dim, BM, BN);
-    size_t dkdv_smem = Config::dkdv_smem_bytes(head_dim, BM, BN);
+    const dim3 block(Config::NUM_THREADS);
+    const dim3 dq_grid((seq_len + BM - 1) / BM, batch_heads);
+    const dim3 dkdv_grid((seq_len + BN - 1) / BN, batch_heads);
+    const size_t dq_smem = Config::dq_smem_bytes(head_dim, BM, BN);
+    const size_t dkdv_smem = Config::dkdv_smem_bytes(head_dim, BM, BN);
+
+    auto launch_dq = [&](auto kernel_func) -> FlashAttentionError {
+        FlashAttentionError prep =
+            prepare_dynamic_smem_launch(reinterpret_cast<const void*>(kernel_func), dq_smem);
+        if (prep != FlashAttentionError::SUCCESS) {
+            return prep;
+        }
+        kernel_func<<<dq_grid, block, dq_smem, stream>>>(Q, K, V, L, dO, D, dQ, seq_len, scale,
+                                                         causal);
+        return cudaGetLastError() == cudaSuccess ? FlashAttentionError::SUCCESS
+                                                 : FlashAttentionError::CUDA_ERROR;
+    };
+    auto launch_dkdv = [&](auto kernel_func) -> FlashAttentionError {
+        FlashAttentionError prep =
+            prepare_dynamic_smem_launch(reinterpret_cast<const void*>(kernel_func), dkdv_smem);
+        if (prep != FlashAttentionError::SUCCESS) {
+            return prep;
+        }
+        kernel_func<<<dkdv_grid, block, dkdv_smem, stream>>>(Q, K, V, L, dO, D, dK, dV, seq_len,
+                                                             scale, causal);
+        return cudaGetLastError() == cudaSuccess ? FlashAttentionError::SUCCESS
+                                                 : FlashAttentionError::CUDA_ERROR;
+    };
 
     if (head_dim == 32) {
-        status = prepare_dynamic_smem_launch(
-            reinterpret_cast<const void*>(
-                flash_attention_backward_dq_kernel<InputT, 64, 64, 32>),
-            dq_smem);
+        if (BM == Config::BLOCK_M) {
+            status = launch_dq(
+                flash_attention_backward_dq_kernel<InputT, Config::BLOCK_M, Config::BLOCK_N, 32>);
+            if (status != FlashAttentionError::SUCCESS)
+                return status;
+            return launch_dkdv(
+                flash_attention_backward_dkdv_kernel<InputT, Config::BLOCK_M, Config::BLOCK_N, 32>);
+        }
+        status = launch_dq(flash_attention_backward_dq_kernel<InputT, Config::BLOCK_M_SMALL,
+                                                              Config::BLOCK_N_SMALL, 32>);
         if (status != FlashAttentionError::SUCCESS)
             return status;
-        status = prepare_dynamic_smem_launch(
-            reinterpret_cast<const void*>(
-                flash_attention_backward_dkdv_kernel<InputT, 64, 64, 32>),
-            dkdv_smem);
-        if (status != FlashAttentionError::SUCCESS)
-            return status;
-
-        flash_attention_backward_dq_kernel<InputT, 64, 64, 32>
-            <<<dq_grid, block, dq_smem, stream>>>(Q, K, V, L, dO, D, dQ, seq_len, scale, causal);
-        err = cudaGetLastError();
-        if (err != cudaSuccess)
-            return FlashAttentionError::CUDA_ERROR;
-
-        flash_attention_backward_dkdv_kernel<InputT, 64, 64, 32>
-            <<<dkdv_grid, block, dkdv_smem, stream>>>(Q, K, V, L, dO, D, dK, dV, seq_len, scale,
-                                                      causal);
-    } else if (head_dim == 64) {
-        status = prepare_dynamic_smem_launch(
-            reinterpret_cast<const void*>(
-                flash_attention_backward_dq_kernel<InputT, 32, 32, 64>),
-            dq_smem);
-        if (status != FlashAttentionError::SUCCESS)
-            return status;
-        status = prepare_dynamic_smem_launch(
-            reinterpret_cast<const void*>(
-                flash_attention_backward_dkdv_kernel<InputT, 32, 32, 64>),
-            dkdv_smem);
-        if (status != FlashAttentionError::SUCCESS)
-            return status;
-
-        flash_attention_backward_dq_kernel<InputT, 32, 32, 64>
-            <<<dq_grid, block, dq_smem, stream>>>(Q, K, V, L, dO, D, dQ, seq_len, scale, causal);
-        err = cudaGetLastError();
-        if (err != cudaSuccess)
-            return FlashAttentionError::CUDA_ERROR;
-
-        flash_attention_backward_dkdv_kernel<InputT, 32, 32, 64>
-            <<<dkdv_grid, block, dkdv_smem, stream>>>(Q, K, V, L, dO, D, dK, dV, seq_len, scale,
-                                                      causal);
-    } else {
-        status = prepare_dynamic_smem_launch(
-            reinterpret_cast<const void*>(
-                flash_attention_backward_dq_kernel<InputT, 16, 32, 128>),
-            dq_smem);
-        if (status != FlashAttentionError::SUCCESS)
-            return status;
-        status = prepare_dynamic_smem_launch(
-            reinterpret_cast<const void*>(
-                flash_attention_backward_dkdv_kernel<InputT, 16, 32, 128>),
-            dkdv_smem);
-        if (status != FlashAttentionError::SUCCESS)
-            return status;
-
-        flash_attention_backward_dq_kernel<InputT, 16, 32, 128>
-            <<<dq_grid, block, dq_smem, stream>>>(Q, K, V, L, dO, D, dQ, seq_len, scale, causal);
-        err = cudaGetLastError();
-        if (err != cudaSuccess)
-            return FlashAttentionError::CUDA_ERROR;
-
-        flash_attention_backward_dkdv_kernel<InputT, 16, 32, 128>
-            <<<dkdv_grid, block, dkdv_smem, stream>>>(Q, K, V, L, dO, D, dK, dV, seq_len, scale,
-                                                      causal);
+        return launch_dkdv(flash_attention_backward_dkdv_kernel<InputT, Config::BLOCK_M_SMALL,
+                                                                Config::BLOCK_N_SMALL, 32>);
     }
-
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
+    if (head_dim == 64) {
+        status = launch_dq(flash_attention_backward_dq_kernel<InputT, Config::BLOCK_M_HD64,
+                                                              Config::BLOCK_N_HD64, 64>);
+        if (status != FlashAttentionError::SUCCESS)
+            return status;
+        return launch_dkdv(flash_attention_backward_dkdv_kernel<InputT, Config::BLOCK_M_HD64,
+                                                                Config::BLOCK_N_HD64, 64>);
     }
-
-    return FlashAttentionError::SUCCESS;
+    if (BN == Config::BLOCK_N_HD128) {
+        status = launch_dq(flash_attention_backward_dq_kernel<InputT, Config::BLOCK_M_HD128,
+                                                              Config::BLOCK_N_HD128, 128>);
+        if (status != FlashAttentionError::SUCCESS)
+            return status;
+        return launch_dkdv(flash_attention_backward_dkdv_kernel<InputT, Config::BLOCK_M_HD128,
+                                                                Config::BLOCK_N_HD128, 128>);
+    }
+    status = launch_dq(flash_attention_backward_dq_kernel<InputT, Config::BLOCK_M_HD128,
+                                                          Config::BLOCK_N_HD128_SMALL, 128>);
+    if (status != FlashAttentionError::SUCCESS)
+        return status;
+    return launch_dkdv(flash_attention_backward_dkdv_kernel<InputT, Config::BLOCK_M_HD128,
+                                                            Config::BLOCK_N_HD128_SMALL, 128>);
 }
-
 // Explicit instantiations for supported dtypes
 template FlashAttentionError launch_flash_attention_backward_typed<float>(
     const float*, const float*, const float*, const float*, const float*, const float*, float*,
     float*, float*, int, int, int, int, float, bool, cudaStream_t);
 template FlashAttentionError launch_flash_attention_backward_typed<half>(
-    const half*, const half*, const half*, const half*, const half*, const half*, half*, half*,
+    const half*, const half*, const half*, const half*, const float*, const half*, half*, half*,
     half*, int, int, int, int, float, bool, cudaStream_t);
 template FlashAttentionError launch_flash_attention_backward_typed<__nv_bfloat16>(
     const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*,
-    const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*, __nv_bfloat16*, __nv_bfloat16*,
-    int, int, int, int, float, bool, cudaStream_t);
+    const float*, const __nv_bfloat16*, __nv_bfloat16*, __nv_bfloat16*, __nv_bfloat16*, int, int,
+    int, int, float, bool, cudaStream_t);
 
 }  // namespace cuflash

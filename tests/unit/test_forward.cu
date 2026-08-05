@@ -77,6 +77,46 @@ static float max_abs_diff(const std::vector<float>& a, const std::vector<float>&
     return max_diff;
 }
 
+// CPU reference for the logsumexp output L[b, h, i] = m_i + log(sum_j exp(s_ij - m_i)),
+// where s_ij = scale * <Q_i, K_j> and m_i = max_j s_ij. This is the quantity the
+// forward kernel stores for use by the backward pass.
+void reference_logsumexp(const std::vector<float>& Q, const std::vector<float>& K,
+                         std::vector<float>& L, int batch_size, int num_heads, int seq_len,
+                         int head_dim, float scale, bool causal) {
+    for (int b = 0; b < batch_size; b++) {
+        for (int h = 0; h < num_heads; h++) {
+            int bh_offset = (b * num_heads + h) * seq_len * head_dim;
+            int l_offset = (b * num_heads + h) * seq_len;
+
+            for (int i = 0; i < seq_len; i++) {
+                float max_score = -INFINITY;
+                for (int j = 0; j < seq_len; j++) {
+                    if (causal && j > i)
+                        continue;
+                    float dot = 0.0f;
+                    for (int d = 0; d < head_dim; d++) {
+                        dot += Q[bh_offset + i * head_dim + d] * K[bh_offset + j * head_dim + d];
+                    }
+                    max_score = std::max(max_score, dot * scale);
+                }
+
+                float sum_exp = 0.0f;
+                for (int j = 0; j < seq_len; j++) {
+                    if (causal && j > i)
+                        continue;
+                    float dot = 0.0f;
+                    for (int d = 0; d < head_dim; d++) {
+                        dot += Q[bh_offset + i * head_dim + d] * K[bh_offset + j * head_dim + d];
+                    }
+                    sum_exp += std::exp(dot * scale - max_score);
+                }
+
+                L[l_offset + i] = max_score + std::log(sum_exp);
+            }
+        }
+    }
+}
+
 // Basic forward test
 TEST(ForwardTest, BasicSmall) {
     const int batch_size = 1;
@@ -178,6 +218,112 @@ TEST(ForwardTest, CausalMultiHeadHeadDim128) {
 
     float diff = max_abs_diff(h_O, ref_O);
     EXPECT_LT(diff, 2e-3f) << "Max difference: " << diff;
+
+    cudaFree(d_Q);
+    cudaFree(d_K);
+    cudaFree(d_V);
+    cudaFree(d_O);
+    cudaFree(d_L);
+}
+
+// The forward pass must store a correct logsumexp L, not just a correct O:
+// the backward pass reconstructs softmax probabilities as exp(S - L), so a
+// wrong L silently corrupts every gradient. Verify L directly against a
+// reference instead of relying on the backward test to catch it indirectly.
+TEST(ForwardTest, LogSumExpMatchesReference) {
+    const int batch_size = 2;
+    const int num_heads = 2;
+    const int seq_len = 16;
+    const int head_dim = 64;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+
+    size_t qkv_size = batch_size * num_heads * seq_len * head_dim;
+    size_t l_size = batch_size * num_heads * seq_len;
+
+    std::vector<float> h_Q(qkv_size), h_K(qkv_size), h_V(qkv_size);
+    std::mt19937 gen(7);
+    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+    for (size_t i = 0; i < qkv_size; i++) {
+        h_Q[i] = dist(gen);
+        h_K[i] = dist(gen);
+        h_V[i] = dist(gen);
+    }
+
+    std::vector<float> h_L(l_size), ref_L(l_size);
+    reference_logsumexp(h_Q, h_K, ref_L, batch_size, num_heads, seq_len, head_dim, scale, false);
+
+    float *d_Q, *d_K, *d_V, *d_O, *d_L;
+    cudaMalloc(&d_Q, qkv_size * sizeof(float));
+    cudaMalloc(&d_K, qkv_size * sizeof(float));
+    cudaMalloc(&d_V, qkv_size * sizeof(float));
+    cudaMalloc(&d_O, qkv_size * sizeof(float));
+    cudaMalloc(&d_L, l_size * sizeof(float));
+
+    cudaMemcpy(d_Q, h_Q.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_K, h_K.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_V, h_V.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+
+    auto err = flash_attention_forward(d_Q, d_K, d_V, d_O, d_L, batch_size, num_heads, seq_len,
+                                       head_dim, scale, false, 0);
+    ASSERT_EQ(err, FlashAttentionError::SUCCESS);
+
+    cudaDeviceSynchronize();
+    cudaMemcpy(h_L.data(), d_L, l_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    float diff = max_abs_diff(h_L, ref_L);
+    EXPECT_LT(diff, 1e-3f) << "Max logsumexp difference: " << diff;
+
+    cudaFree(d_Q);
+    cudaFree(d_K);
+    cudaFree(d_V);
+    cudaFree(d_O);
+    cudaFree(d_L);
+}
+
+// Same check with causal masking enabled, where masked positions must not
+// contribute to the logsumexp.
+TEST(ForwardTest, LogSumExpCausalMatchesReference) {
+    const int batch_size = 1;
+    const int num_heads = 2;
+    const int seq_len = 16;
+    const int head_dim = 32;
+    const float scale = 1.0f / std::sqrt(static_cast<float>(head_dim));
+
+    size_t qkv_size = batch_size * num_heads * seq_len * head_dim;
+    size_t l_size = batch_size * num_heads * seq_len;
+
+    std::vector<float> h_Q(qkv_size), h_K(qkv_size), h_V(qkv_size);
+    std::mt19937 gen(9);
+    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+    for (size_t i = 0; i < qkv_size; i++) {
+        h_Q[i] = dist(gen);
+        h_K[i] = dist(gen);
+        h_V[i] = dist(gen);
+    }
+
+    std::vector<float> h_L(l_size), ref_L(l_size);
+    reference_logsumexp(h_Q, h_K, ref_L, batch_size, num_heads, seq_len, head_dim, scale, true);
+
+    float *d_Q, *d_K, *d_V, *d_O, *d_L;
+    cudaMalloc(&d_Q, qkv_size * sizeof(float));
+    cudaMalloc(&d_K, qkv_size * sizeof(float));
+    cudaMalloc(&d_V, qkv_size * sizeof(float));
+    cudaMalloc(&d_O, qkv_size * sizeof(float));
+    cudaMalloc(&d_L, l_size * sizeof(float));
+
+    cudaMemcpy(d_Q, h_Q.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_K, h_K.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_V, h_V.data(), qkv_size * sizeof(float), cudaMemcpyHostToDevice);
+
+    auto err = flash_attention_forward(d_Q, d_K, d_V, d_O, d_L, batch_size, num_heads, seq_len,
+                                       head_dim, scale, true, 0);
+    ASSERT_EQ(err, FlashAttentionError::SUCCESS);
+
+    cudaDeviceSynchronize();
+    cudaMemcpy(h_L.data(), d_L, l_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    float diff = max_abs_diff(h_L, ref_L);
+    EXPECT_LT(diff, 1e-3f) << "Max causal logsumexp difference: " << diff;
 
     cudaFree(d_Q);
     cudaFree(d_K);

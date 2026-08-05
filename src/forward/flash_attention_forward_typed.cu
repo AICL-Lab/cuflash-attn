@@ -2,6 +2,8 @@
 
 #include <float.h>
 
+#include <type_traits>
+
 #include "cuflash/flash_attention.h"
 #include "impl/online_softmax.cuh"
 #include "impl/tile_io.cuh"
@@ -15,7 +17,7 @@ template<typename InputT, int BLOCK_M, int BLOCK_N, int HEAD_DIM>
 __global__ void __launch_bounds__(128)
     flash_attention_forward_kernel(const InputT* __restrict__ Q, const InputT* __restrict__ K,
                                    const InputT* __restrict__ V, InputT* __restrict__ O,
-                                   InputT* __restrict__ L, int seq_len, float scale, bool causal) {
+                                   float* __restrict__ L, int seq_len, float scale, bool causal) {
     const int batch_head_idx = blockIdx.y;
     const int q_block_idx = blockIdx.x;
 
@@ -23,7 +25,7 @@ __global__ void __launch_bounds__(128)
     const InputT* K_ptr = K + batch_head_idx * seq_len * HEAD_DIM;
     const InputT* V_ptr = V + batch_head_idx * seq_len * HEAD_DIM;
     InputT* O_ptr = O + batch_head_idx * seq_len * HEAD_DIM;
-    InputT* L_ptr = L + batch_head_idx * seq_len;
+    float* L_ptr = L + batch_head_idx * seq_len;
 
     const int q_start = q_block_idx * BLOCK_M;
     if (q_start >= seq_len)
@@ -105,21 +107,23 @@ __global__ void __launch_bounds__(128)
                 O_tile[row * HEAD_DIM + d] *= rescale;
             }
 
-            // Compute P = exp(S - m_new) and accumulate P @ V
+            // P = exp(S - m_new), computed once per element and kept in
+            // S_tile for the P @ V product below (out-of-range entries are 0).
             float row_sum = 0.0f;
+            for (int j = 0; j < BLOCK_N; j++) {
+                float p = 0.0f;
+                if (kv_start + j < seq_len) {
+                    p = expf(S_tile[row * BLOCK_N + j] - m_new);
+                }
+                S_tile[row * BLOCK_N + j] = p;
+                row_sum += p;
+            }
+
+            // O += P @ V
             for (int d = 0; d < HEAD_DIM; d++) {
                 float pv = 0.0f;
                 for (int j = 0; j < BLOCK_N; j++) {
-                    float p;
-                    if (kv_start + j < seq_len) {
-                        p = expf(S_tile[row * BLOCK_N + j] - m_new);
-                    } else {
-                        p = 0.0f;
-                    }
-                    if (d == 0) {
-                        row_sum += p;
-                    }
-                    pv += p * V_tile[j * HEAD_DIM + d];
+                    pv += S_tile[row * BLOCK_N + j] * V_tile[j * HEAD_DIM + d];
                 }
                 O_tile[row * HEAD_DIM + d] += pv;
             }
@@ -143,8 +147,7 @@ __global__ void __launch_bounds__(128)
                 impl::TypeAdapter<InputT>::from_compute(O_tile[row * HEAD_DIM + d] * l_inv);
         }
 
-        L_ptr[global_row] =
-            impl::TypeAdapter<InputT>::from_compute(m_tile[row] + logf(l_tile[row]));
+        L_ptr[global_row] = m_tile[row] + logf(l_tile[row]);
     }
 }
 
@@ -157,99 +160,158 @@ template __global__ void flash_attention_forward_kernel<float, 32, 32, 128>(
     const float*, const float*, const float*, float*, float*, int, float, bool);
 
 template __global__ void flash_attention_forward_kernel<half, 64, 64, 32>(const half*, const half*,
-                                                                          const half*, half*, half*,
-                                                                          int, float, bool);
+                                                                          const half*, half*,
+                                                                          float*, int, float, bool);
 template __global__ void flash_attention_forward_kernel<half, 64, 64, 64>(const half*, const half*,
-                                                                          const half*, half*, half*,
-                                                                          int, float, bool);
+                                                                          const half*, half*,
+                                                                          float*, int, float, bool);
 template __global__ void flash_attention_forward_kernel<half, 32, 32, 128>(const half*, const half*,
                                                                            const half*, half*,
-                                                                           half*, int, float, bool);
+                                                                           float*, int, float,
+                                                                           bool);
 
 template __global__ void flash_attention_forward_kernel<__nv_bfloat16, 64, 64, 32>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*,
-    __nv_bfloat16*, int, float, bool);
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*, float*, int,
+    float, bool);
 template __global__ void flash_attention_forward_kernel<__nv_bfloat16, 64, 64, 64>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*,
-    __nv_bfloat16*, int, float, bool);
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*, float*, int,
+    float, bool);
 template __global__ void flash_attention_forward_kernel<__nv_bfloat16, 32, 32, 128>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*,
-    __nv_bfloat16*, int, float, bool);
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*, float*, int,
+    float, bool);
+
+// Fallback tilings for GPUs with a small shared-memory cap (e.g. sm_75).
+template __global__ void flash_attention_forward_kernel<float, 32, 32, 64>(
+    const float*, const float*, const float*, float*, float*, int, float, bool);
+template __global__ void flash_attention_forward_kernel<float, 16, 16, 128>(
+    const float*, const float*, const float*, float*, float*, int, float, bool);
+
+template __global__ void flash_attention_forward_kernel<half, 32, 32, 64>(const half*, const half*,
+                                                                          const half*, half*,
+                                                                          float*, int, float, bool);
+template __global__ void flash_attention_forward_kernel<half, 16, 16, 128>(const half*, const half*,
+                                                                           const half*, half*,
+                                                                           float*, int, float,
+                                                                           bool);
+
+template __global__ void flash_attention_forward_kernel<__nv_bfloat16, 32, 32, 64>(
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*, float*, int,
+    float, bool);
+template __global__ void flash_attention_forward_kernel<__nv_bfloat16, 16, 16, 128>(
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*, float*, int,
+    float, bool);
+
+// Tensor-core forward (Phase 2 of the tensor-core migration plan), defined
+// in flash_attention_forward_wmma.cu.
+template<typename InputT>
+FlashAttentionError launch_flash_attention_forward_wmma_typed(
+    const InputT* Q, const InputT* K, const InputT* V, InputT* O, float* L, int batch_size,
+    int num_heads, int seq_len, int head_dim, float scale, bool causal, cudaStream_t stream);
 
 // Unified launch function - single generic implementation for all dtypes
 template<typename InputT>
 FlashAttentionError launch_flash_attention_forward_typed(const InputT* Q, const InputT* K,
-                                                         const InputT* V, InputT* O, InputT* L,
+                                                         const InputT* V, InputT* O, float* L,
                                                          int batch_size, int num_heads, int seq_len,
                                                          int head_dim, float scale, bool causal,
                                                          cudaStream_t stream) {
     using Config = impl::ForwardTilingConfig;
-    constexpr int BLOCK_M = Config::BLOCK_M;
-    constexpr int BLOCK_N = Config::BLOCK_N;
-    constexpr int BLOCK_M_HD128 = Config::BLOCK_M_HD128;
-    constexpr int BLOCK_N_HD128 = Config::BLOCK_N_HD128;
 
-    const int batch_heads = batch_size * num_heads;
-    dim3 block(Config::NUM_THREADS);
+    // Tensor-core path for reduced precision. BF16 fragments need sm_80+,
+    // FP16 needs sm_70+; anything else keeps the scalar path below. A
+    // CUDA_ERROR from the WMMA launch (e.g. no binary compiled for this
+    // arch) also falls through to the scalar path.
+    if constexpr (!std::is_same_v<InputT, float>) {
+        int device = 0;
+        int major = 0;
+        if (cudaGetDevice(&device) == cudaSuccess &&
+            cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device) ==
+                cudaSuccess) {
+            const bool needs_sm80 = std::is_same_v<InputT, __nv_bfloat16>;
+            if (major >= 8 || (major == 7 && !needs_sm80)) {
+                FlashAttentionError wmma_status = launch_flash_attention_forward_wmma_typed<InputT>(
+                    Q, K, V, O, L, batch_size, num_heads, seq_len, head_dim, scale, causal, stream);
+                if (wmma_status != FlashAttentionError::CUDA_ERROR) {
+                    return wmma_status;
+                }
+            }
+        }
+    }
 
-    FlashAttentionError status = FlashAttentionError::SUCCESS;
+    int max_dynamic_smem = 0;
+    FlashAttentionError status = query_max_dynamic_shared_memory_per_block(&max_dynamic_smem);
+    if (status != FlashAttentionError::SUCCESS) {
+        return status;
+    }
 
-    if (head_dim == 32 || head_dim == 64) {
-        const int num_q_blocks = (seq_len + BLOCK_M - 1) / BLOCK_M;
-        dim3 grid(num_q_blocks, batch_heads);
-        size_t smem_size = Config::smem_bytes(head_dim, BLOCK_M, BLOCK_N);
-
-        if (head_dim == 32) {
-            status = prepare_dynamic_smem_launch(
-                reinterpret_cast<const void*>(
-                    flash_attention_forward_kernel<InputT, BLOCK_M, BLOCK_N, 32>),
-                smem_size);
-            if (status != FlashAttentionError::SUCCESS)
-                return status;
-            flash_attention_forward_kernel<InputT, BLOCK_M, BLOCK_N, 32>
-                <<<grid, block, smem_size, stream>>>(Q, K, V, O, L, seq_len, scale, causal);
-        } else {
-            status = prepare_dynamic_smem_launch(
-                reinterpret_cast<const void*>(
-                    flash_attention_forward_kernel<InputT, BLOCK_M, BLOCK_N, 64>),
-                smem_size);
-            if (status != FlashAttentionError::SUCCESS)
-                return status;
-            flash_attention_forward_kernel<InputT, BLOCK_M, BLOCK_N, 64>
-                <<<grid, block, smem_size, stream>>>(Q, K, V, O, L, seq_len, scale, causal);
+    // Pick the largest tiling whose shared memory fits this device, falling
+    // back to smaller tiles on GPUs with a low cap (sm_75 opt-in is 64 KB).
+    int BM, BN;
+    if (head_dim == 32) {
+        BM = Config::BLOCK_M;
+        BN = Config::BLOCK_N;
+    } else if (head_dim == 64) {
+        BM = Config::BLOCK_M;
+        BN = Config::BLOCK_N;
+        if (Config::smem_bytes(head_dim, BM, BN) > static_cast<size_t>(max_dynamic_smem)) {
+            BM = Config::BLOCK_M_SMALL;
+            BN = Config::BLOCK_N_SMALL;
         }
     } else {
-        const int num_q_blocks = (seq_len + BLOCK_M_HD128 - 1) / BLOCK_M_HD128;
-        dim3 grid(num_q_blocks, batch_heads);
-        size_t smem_size = Config::smem_bytes(head_dim, BLOCK_M_HD128, BLOCK_N_HD128);
-
-        status = prepare_dynamic_smem_launch(
-            reinterpret_cast<const void*>(
-                flash_attention_forward_kernel<InputT, BLOCK_M_HD128, BLOCK_N_HD128, 128>),
-            smem_size);
-        if (status != FlashAttentionError::SUCCESS)
-            return status;
-        flash_attention_forward_kernel<InputT, BLOCK_M_HD128, BLOCK_N_HD128, 128>
-            <<<grid, block, smem_size, stream>>>(Q, K, V, O, L, seq_len, scale, causal);
+        BM = Config::BLOCK_M_HD128;
+        BN = Config::BLOCK_N_HD128;
+        if (Config::smem_bytes(head_dim, BM, BN) > static_cast<size_t>(max_dynamic_smem)) {
+            BM = Config::BLOCK_M_HD128_SMALL;
+            BN = Config::BLOCK_N_HD128_SMALL;
+        }
     }
 
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        return FlashAttentionError::CUDA_ERROR;
-    }
+    const int batch_heads = batch_size * num_heads;
+    const dim3 grid((seq_len + BM - 1) / BM, batch_heads);
+    const dim3 block(Config::NUM_THREADS);
+    const size_t smem_size = Config::smem_bytes(head_dim, BM, BN);
 
-    return FlashAttentionError::SUCCESS;
+    auto launch = [&](auto kernel_func) -> FlashAttentionError {
+        FlashAttentionError prep =
+            prepare_dynamic_smem_launch(reinterpret_cast<const void*>(kernel_func), smem_size);
+        if (prep != FlashAttentionError::SUCCESS) {
+            return prep;
+        }
+        kernel_func<<<grid, block, smem_size, stream>>>(Q, K, V, O, L, seq_len, scale, causal);
+        return cudaGetLastError() == cudaSuccess ? FlashAttentionError::SUCCESS
+                                                 : FlashAttentionError::CUDA_ERROR;
+    };
+
+    if (head_dim == 32) {
+        return launch(flash_attention_forward_kernel<InputT, Config::BLOCK_M, Config::BLOCK_N, 32>);
+    }
+    if (head_dim == 64) {
+        if (BM == Config::BLOCK_M) {
+            return launch(
+                flash_attention_forward_kernel<InputT, Config::BLOCK_M, Config::BLOCK_N, 64>);
+        }
+        return launch(flash_attention_forward_kernel<InputT, Config::BLOCK_M_SMALL,
+                                                     Config::BLOCK_N_SMALL, 64>);
+    }
+    if (BM == Config::BLOCK_M_HD128) {
+        return launch(flash_attention_forward_kernel<InputT, Config::BLOCK_M_HD128,
+                                                     Config::BLOCK_N_HD128, 128>);
+    }
+    return launch(flash_attention_forward_kernel<InputT, Config::BLOCK_M_HD128_SMALL,
+                                                 Config::BLOCK_N_HD128_SMALL, 128>);
 }
 
 // Explicit instantiations for supported dtypes
-template FlashAttentionError launch_flash_attention_forward_typed<float>(
-    const float*, const float*, const float*, float*, float*, int, int, int, int, float, bool,
-    cudaStream_t);
-template FlashAttentionError launch_flash_attention_forward_typed<half>(
-    const half*, const half*, const half*, half*, half*, int, int, int, int, float, bool,
-    cudaStream_t);
+template FlashAttentionError launch_flash_attention_forward_typed<float>(const float*, const float*,
+                                                                         const float*, float*,
+                                                                         float*, int, int, int, int,
+                                                                         float, bool, cudaStream_t);
+template FlashAttentionError launch_flash_attention_forward_typed<half>(const half*, const half*,
+                                                                        const half*, half*, float*,
+                                                                        int, int, int, int, float,
+                                                                        bool, cudaStream_t);
 template FlashAttentionError launch_flash_attention_forward_typed<__nv_bfloat16>(
-    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*,
-    __nv_bfloat16*, int, int, int, int, float, bool, cudaStream_t);
+    const __nv_bfloat16*, const __nv_bfloat16*, const __nv_bfloat16*, __nv_bfloat16*, float*, int,
+    int, int, int, float, bool, cudaStream_t);
 
 }  // namespace cuflash

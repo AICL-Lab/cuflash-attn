@@ -73,7 +73,8 @@ const enSidebar = {
         { text: 'System Architecture', link: '/en/architecture' },
         { text: 'Algorithm', link: '/en/algorithm' },
         { text: 'Kernel Deep Dive', link: '/en/design/kernel-deep-dive' },
-        { text: 'Design Decisions', link: '/en/design/design-decisions' }
+        { text: 'Design Decisions', link: '/en/design/design-decisions' },
+        { text: 'Tensor Core Migration', link: '/en/design/tensor-core-migration' }
       ]
     },
     {
@@ -128,7 +129,8 @@ const zhSidebar = {
         { text: '系统架构', link: '/zh/architecture' },
         { text: '算法详解', link: '/zh/algorithm' },
         { text: 'Kernel 逐行解读', link: '/zh/design/kernel-deep-dive' },
-        { text: '设计决策', link: '/zh/design/design-decisions' }
+        { text: '设计决策', link: '/zh/design/design-decisions' },
+        { text: 'Tensor Core 迁移计划', link: '/zh/design/tensor-core-migration' }
       ]
     },
     {
@@ -222,7 +224,7 @@ export default withMermaid(defineConfig({
       { icon: 'github', link: 'https://github.com/AICL-Lab/cuflash-attn' }
     ],
     footer: {
-      message: 'Stable v0.3.0 baseline. Lean CUDA FlashAttention reference.',
+      message: 'Stable v0.4.0 baseline. Lean CUDA FlashAttention reference.',
       copyright: 'Copyright 2026 AICL-Lab.'
     },
     editLink: {

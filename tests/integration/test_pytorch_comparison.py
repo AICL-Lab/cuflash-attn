@@ -110,6 +110,42 @@ class CuFlashLibrary:
         ]
         self.library.cuflash_attention_backward_f16.restype = ctypes.c_int
 
+        self.library.cuflash_attention_forward_bf16.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_float,
+            ctypes.c_bool,
+            ctypes.c_void_p,
+        ]
+        self.library.cuflash_attention_forward_bf16.restype = ctypes.c_int
+
+        self.library.cuflash_attention_backward_bf16.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_float,
+            ctypes.c_bool,
+            ctypes.c_void_p,
+        ]
+        self.library.cuflash_attention_backward_bf16.restype = ctypes.c_int
+
 
 def _script_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
@@ -242,7 +278,9 @@ def _call_forward_f16(
     batch_size, num_heads, seq_len, head_dim = q.shape
     scale = float(1.0 / np.sqrt(head_dim))
     o = torch.empty_like(q)
-    l = torch.empty((batch_size, num_heads, seq_len), device=q.device, dtype=torch.float16)
+    # logsumexp is stored in FP32 (the C ABI takes a float* even for FP16
+    # inputs) so the backward can reconstruct softmax probabilities accurately.
+    l = torch.empty((batch_size, num_heads, seq_len), device=q.device, dtype=torch.float32)
 
     status = library.library.cuflash_attention_forward_f16(
         _ptr(q),
@@ -298,6 +336,81 @@ def _call_backward_f16(
     )
     torch.cuda.synchronize()
     return status, d_q, d_k, d_v
+
+
+def _call_forward_bf16(
+    library: CuFlashLibrary,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    causal: bool,
+) -> Tuple[int, torch.Tensor, torch.Tensor]:
+    batch_size, num_heads, seq_len, head_dim = q.shape
+    scale = float(1.0 / np.sqrt(head_dim))
+    o = torch.empty_like(q)
+    # logsumexp is stored in FP32 (the C ABI takes a float* even for BF16
+    # inputs) so the backward can reconstruct softmax probabilities accurately.
+    l = torch.empty((batch_size, num_heads, seq_len), device=q.device, dtype=torch.float32)
+
+    status = library.library.cuflash_attention_forward_bf16(
+        _ptr(q),
+        _ptr(k),
+        _ptr(v),
+        _ptr(o),
+        _ptr(l),
+        batch_size,
+        num_heads,
+        seq_len,
+        head_dim,
+        ctypes.c_float(scale),
+        causal,
+        None,
+    )
+    torch.cuda.synchronize()
+    return status, o, l
+
+
+def _call_backward_bf16(
+    library: CuFlashLibrary,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    o: torch.Tensor,
+    l: torch.Tensor,
+    grad_output: torch.Tensor,
+    causal: bool,
+) -> Tuple[int, torch.Tensor, torch.Tensor, torch.Tensor]:
+    batch_size, num_heads, seq_len, head_dim = q.shape
+    scale = float(1.0 / np.sqrt(head_dim))
+    d_q = torch.empty_like(q)
+    d_k = torch.empty_like(k)
+    d_v = torch.empty_like(v)
+
+    status = library.library.cuflash_attention_backward_bf16(
+        _ptr(q),
+        _ptr(k),
+        _ptr(v),
+        _ptr(o),
+        _ptr(l),
+        _ptr(grad_output),
+        _ptr(d_q),
+        _ptr(d_k),
+        _ptr(d_v),
+        batch_size,
+        num_heads,
+        seq_len,
+        head_dim,
+        ctypes.c_float(scale),
+        causal,
+        None,
+    )
+    torch.cuda.synchronize()
+    return status, d_q, d_k, d_v
+
+
+def _bf16_native() -> bool:
+    # Native bfloat16 tensor-core support starts with Ampere (sm_80).
+    return torch.cuda.get_device_capability(0) >= (8, 0)
 
 
 def _reference_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, causal: bool) -> torch.Tensor:
@@ -466,11 +579,116 @@ def test_fp16_backward_equivalence(library: CuFlashLibrary):
     print(f"  dK max diff: {d_k_diff:.2e}")
     print(f"  dV max diff: {d_v_diff:.2e}")
 
-    assert d_q_diff < 1e-1, f"dQ mismatch: {d_q_diff}"
-    assert d_k_diff < 1e-1, f"dK mismatch: {d_k_diff}"
-    assert d_v_diff < 1e-1, f"dV mismatch: {d_v_diff}"
+    # FP16 gradient error vs a float32 reference stays around 1e-2 for these
+    # small shapes; 2e-2 leaves headroom for half-precision accumulation while
+    # still catching real bugs (the previous 1e-1 was too loose to be useful).
+    assert d_q_diff < 2e-2, f"dQ mismatch: {d_q_diff}"
+    assert d_k_diff < 2e-2, f"dK mismatch: {d_k_diff}"
+    assert d_v_diff < 2e-2, f"dV mismatch: {d_v_diff}"
 
     print("  FP16 backward equivalence test PASSED")
+    return True
+
+
+def test_fp16_causal_forward(library: CuFlashLibrary):
+    """Test that causal FP16 forward pass stays close to PyTorch."""
+    print("Testing FP16 causal forward...")
+
+    batch_size = 1
+    num_heads = 2
+    seq_len = 32
+    head_dim = 32
+
+    torch.manual_seed(42)
+    q = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.float16).contiguous()
+    k = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.float16).contiguous()
+    v = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.float16).contiguous()
+
+    status, output, _ = _call_forward_f16(library, q, k, v, causal=True)
+    assert status == SUCCESS, f"CuFlash FP16 causal forward failed with status {status}"
+
+    reference = _reference_attention(q, k, v, causal=True)
+    diff = (output.float() - reference.float()).abs().max().item()
+    print(f"  CuFlash FP16 vs PyTorch causal max diff: {diff:.2e}")
+    assert diff < 1e-2, f"FP16 causal forward test failed: {diff}"
+
+    print("  FP16 causal forward test PASSED")
+    return True
+
+
+def test_bf16_forward_equivalence(library: CuFlashLibrary):
+    """Test that BF16 forward pass stays close to PyTorch."""
+    if not _bf16_native():
+        print("Testing BF16 forward equivalence... SKIPPED (requires sm_80+)")
+        return True
+    print("Testing BF16 forward equivalence...")
+
+    batch_size = 1
+    num_heads = 2
+    seq_len = 32
+    head_dim = 32
+
+    torch.manual_seed(42)
+    q = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.bfloat16).contiguous()
+    k = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.bfloat16).contiguous()
+    v = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.bfloat16).contiguous()
+
+    status, output, _ = _call_forward_bf16(library, q, k, v, causal=False)
+    assert status == SUCCESS, f"CuFlash BF16 forward failed with status {status}"
+
+    reference = _reference_attention(q, k, v, causal=False)
+    diff = (output.float() - reference.float()).abs().max().item()
+    print(f"  CuFlash BF16 vs PyTorch max diff: {diff:.2e}")
+    # BF16 mantissa is coarser than FP16; same tolerance as test_dtype.cu.
+    assert diff < 2e-2, f"BF16 forward equivalence test failed: {diff}"
+
+    print("  BF16 forward pass test PASSED")
+    return True
+
+
+def test_bf16_backward_equivalence(library: CuFlashLibrary):
+    """Test that BF16 backward gradients stay close to PyTorch autograd."""
+    if not _bf16_native():
+        print("Testing BF16 backward equivalence... SKIPPED (requires sm_80+)")
+        return True
+    print("Testing BF16 backward equivalence...")
+
+    batch_size = 1
+    num_heads = 1
+    seq_len = 16
+    head_dim = 32
+
+    torch.manual_seed(42)
+    q = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.bfloat16).contiguous()
+    k = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.bfloat16).contiguous()
+    v = torch.randn(batch_size, num_heads, seq_len, head_dim, device="cuda", dtype=torch.bfloat16).contiguous()
+    grad_output = torch.randn_like(q).contiguous()
+
+    status, output, l = _call_forward_bf16(library, q, k, v, causal=False)
+    assert status == SUCCESS, f"CuFlash BF16 forward failed with status {status}"
+
+    status, d_q, d_k, d_v = _call_backward_bf16(library, q, k, v, output, l, grad_output, causal=False)
+    assert status == SUCCESS, f"CuFlash BF16 backward failed with status {status}"
+
+    q_ref = q.float().requires_grad_(True)
+    k_ref = k.float().requires_grad_(True)
+    v_ref = v.float().requires_grad_(True)
+    ref_output = _reference_attention(q_ref, k_ref, v_ref, causal=False)
+    ref_output.backward(grad_output.float())
+
+    d_q_diff = (d_q.float() - q_ref.grad).abs().max().item()
+    d_k_diff = (d_k.float() - k_ref.grad).abs().max().item()
+    d_v_diff = (d_v.float() - v_ref.grad).abs().max().item()
+
+    print(f"  dQ max diff: {d_q_diff:.2e}")
+    print(f"  dK max diff: {d_k_diff:.2e}")
+    print(f"  dV max diff: {d_v_diff:.2e}")
+
+    assert d_q_diff < 2e-2, f"dQ mismatch: {d_q_diff}"
+    assert d_k_diff < 2e-2, f"dK mismatch: {d_k_diff}"
+    assert d_v_diff < 2e-2, f"dV mismatch: {d_v_diff}"
+
+    print("  BF16 backward equivalence test PASSED")
     return True
 
 
@@ -540,6 +758,9 @@ def main():
         test_backward_gradients,
         test_fp16_forward_equivalence,
         test_fp16_backward_equivalence,
+        test_fp16_causal_forward,
+        test_bf16_forward_equivalence,
+        test_bf16_backward_equivalence,
         test_different_shapes,
     ]
 

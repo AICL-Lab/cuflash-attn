@@ -45,7 +45,7 @@ function setLanguage(lang) {
   </div>
   <h1 class="hero-title">CuFlash-Attn</h1>
   <p class="hero-tagline">From-scratch CUDA FlashAttention Reference Implementation</p>
-  <p class="hero-version">v0.3.0 Stable Baseline</p>
+  <p class="hero-version">v0.5.0 Stable Baseline</p>
 </div>
 
 <div class="lang-selector">

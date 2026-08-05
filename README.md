@@ -18,7 +18,7 @@ CuFlash-Attn is a **from-scratch implementation** of the FlashAttention algorith
 
 ### Project Status
 
-- **Status**: Stable `v0.3.0` codebase under maintenance cleanup
+- **Status**: Stable `v0.5.0` codebase under maintenance cleanup
 - **Source of Truth**: public headers, implementation, tests, and user-facing docs
 - **Positioning**: Lean reference implementation for learning, auditing, and lightweight integration
 - **Current Focus**: Removing stale workflow layers, tightening docs, and fixing long-tail defects rather than adding new features
@@ -68,8 +68,8 @@ CuFlash-Attn is a **from-scratch implementation** of the FlashAttention algorith
 ### Prerequisites
 
 - **GPU**: NVIDIA GPU with Compute Capability 7.0+ (V100, RTX 20/30/40, A100, H100)
-- **CUDA Toolkit**: 11.0 or later
-- **CMake**: 3.18 or later
+- **CUDA Toolkit**: 11.8 or later (12.x recommended; sm_90/Hopper requires 11.8+)
+- **CMake**: 3.18 or later (3.20+ required to use the CMake presets)
 - **Compiler**: GCC 7+, Clang 5+, or MSVC 2017+ (C++17 support required)
 
 ### Option 1: Build from Source
@@ -97,7 +97,7 @@ docker build -t cuflash-attn .
 docker run --gpus all -it cuflash-attn
 
 # Inside container: run benchmarks
-./build/release/benchmarks/cuflash_attn_bench
+./cuflash_attn_bench
 ```
 
 ### Your First C++ Program
@@ -233,7 +233,7 @@ print(f"Output shape: {O.shape}, mean: {O.mean().item():.4f}")
 ```bash
 cmake --preset release
 cmake --build --preset release
-./build/release/benchmarks/cuflash_attn_bench
+./build/release/cuflash_attn_bench
 ```
 
 ---
@@ -309,14 +309,14 @@ cuflash-attn/
 │   ├── backward/               # Backward kernel implementations
 │   └── kernels/                # Internal kernel utilities (.cuh)
 ├── tests/                      # Test suite
-│   ├── unit/                   # Unit tests (8 files)
+│   ├── unit/                   # Unit tests (10 files)
 │   ├── integration/            # Integration tests + PyTorch comparison
 │   └── package_smoke/          # Package smoke tests
 ├── CMakeLists.txt              # Main build configuration
 ├── CMakePresets.json           # Build presets (release, debug, asan)
 ├── Dockerfile                  # Container build
 └── .github/workflows/          # CI/CD workflows
-    ├── ci.yml                  # Matrix builds, tests, benchmarks
+    ├── ci.yml                  # Multi-config build matrix & tests
     ├── codeql.yml              # Security scanning
     ├── pages.yml               # Docs deployment
     └── release.yml             # Release automation
@@ -342,9 +342,9 @@ ctest --preset release -R PyTorch        # PyTorch comparison (requires GPU + Py
 ### Code Quality Tools
 
 - ✅ **clang-format**: Automated code formatting (enforced in CI)
-- ✅ **clang-tidy**: Static analysis with 50+ checks
+- ✅ **clang-tidy**: Static analysis with 50+ checks (host sources enforced in CI)
 - ✅ **CodeQL**: Weekly security scanning
-- ✅ **Sanitizers**: AddressSanitizer & UBSan support (debug builds)
+- ✅ **Sanitizers**: AddressSanitizer & UBSan (CI build matrix) + compute-sanitizer (GPU workflow)
 
 ```bash
 # Build with AddressSanitizer
@@ -377,8 +377,8 @@ find . -name "*.cu" -o -name "*.cuh" -o -name "*.cpp" -o -name "*.h" | xargs cla
 cmake --preset release && cmake --build --preset release
 ctest --preset release --output-on-failure
 
-# Optional: Run clang-tidy
-clang-tidy src/api/flash_attention_api.cu -- -Iinclude
+# Optional: Run clang-tidy (host sources)
+./scripts/run_clang_tidy.sh build/release
 ```
 
 📋 **Detailed guidelines**: See [CONTRIBUTING.md](CONTRIBUTING.md)

@@ -86,7 +86,7 @@ FlashAttentionError flash_attention_forward(
     const half* K,           // 键张量 [B, H, N, D]
     const half* V,           // 值张量 [B, H, N, D]
     half* O,                 // 输出张量 [B, H, N, D]
-    half* L,                 // logsumexp [B, H, N]
+    float* L,                // logsumexp [B, H, N]（始终为 FP32）
     int batch_size,
     int num_heads,
     int seq_len,
@@ -154,7 +154,7 @@ FlashAttentionError flash_attention_backward(
     const half* K,
     const half* V,
     const half* O,
-    const half* L,
+    const float* L,
     const half* dO,
     half* dQ,
     half* dK,
@@ -207,7 +207,7 @@ int cuflash_attention_backward_f32(
 // 前向传播 - C ABI
 int cuflash_attention_forward_f16(
     const half* Q, const half* K, const half* V,
-    half* O, half* L,
+    half* O, float* L,
     int batch_size, int num_heads, int seq_len, int head_dim,
     float scale, bool causal, cudaStream_t stream
 );
@@ -215,7 +215,7 @@ int cuflash_attention_forward_f16(
 // 反向传播 - C ABI
 int cuflash_attention_backward_f16(
     const half* Q, const half* K, const half* V,
-    const half* O, const half* L, const half* dO,
+    const half* O, const float* L, const half* dO,
     half* dQ, half* dK, half* dV,
     int batch_size, int num_heads, int seq_len, int head_dim,
     float scale, bool causal, cudaStream_t stream

@@ -1,6 +1,6 @@
 # Project Status
 
-CuFlash-Attn is maintained as a **stable v0.3.0 reference implementation** for learning, auditing, and lightweight integration.
+CuFlash-Attn is maintained as a **stable v0.5.0 reference implementation** for learning, auditing, and lightweight integration.
 
 ## What stays in scope
 

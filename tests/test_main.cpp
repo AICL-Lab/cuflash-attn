@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
-#include <iostream>
 
 namespace {
 
@@ -21,15 +20,30 @@ bool cuda_device_available() {
     return err == cudaSuccess && device_count > 0;
 }
 
+// Skips every test when no CUDA device is present so that CI (which runs on
+// GPU-less runners) reports these cases as SKIPPED rather than silently
+// passing them. A green CI that never executed a single kernel is worse than
+// a red one: it hides regressions behind a false sense of correctness.
+class GpuRequirementEnvironment : public ::testing::Environment {
+   public:
+    void SetUp() override {
+        if (!cuda_device_available()) {
+            GTEST_SKIP() << "CUDA device not available; skipping GPU tests";
+        }
+    }
+};
+
 }  // namespace
 
 int main(int argc, char** argv) {
     const bool listing_tests = is_listing_tests(argc, argv);
     ::testing::InitGoogleTest(&argc, argv);
 
-    if (!listing_tests && !cuda_device_available()) {
-        std::cout << "CUDA device not available; skipping GPU test executable" << std::endl;
-        return 0;
+    // Test discovery (--gtest_list_tests) must succeed without a GPU so that
+    // gtest_discover_tests can enumerate cases at build time; the skip logic
+    // only applies when the tests actually run.
+    if (!listing_tests) {
+        ::testing::AddGlobalTestEnvironment(new GpuRequirementEnvironment);
     }
 
     return RUN_ALL_TESTS();

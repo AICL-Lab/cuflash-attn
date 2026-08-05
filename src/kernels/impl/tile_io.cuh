@@ -175,6 +175,30 @@ __device__ __forceinline__ void load_tile_to_shared(const half* __restrict__ src
     }
 }
 
+// Same-precision tile load for the tensor-core kernels: tiles stay in the
+// input type (half/bf16) instead of being up-converted to float, which halves
+// shared-memory pressure. Out-of-bounds elements are zero-filled.
+template<int BLOCK_ROWS, int BLOCK_COLS, typename T>
+__device__ __forceinline__ void load_tile_to_shared_native(const T* __restrict__ src,
+                                                           T* __restrict__ dst, int row_start,
+                                                           int col_start, int max_rows,
+                                                           int max_cols, int src_stride) {
+    const int tid = threadIdx.x;
+    const int num_threads = blockDim.x;
+    const int total_elements = BLOCK_ROWS * BLOCK_COLS;
+
+    for (int i = tid; i < total_elements; i += num_threads) {
+        int local_row = i / BLOCK_COLS;
+        int local_col = i % BLOCK_COLS;
+        int global_row = row_start + local_row;
+        int global_col = col_start + local_col;
+
+        dst[i] = (global_row < max_rows && global_col < max_cols)
+                     ? src[global_row * src_stride + global_col]
+                     : static_cast<T>(0.0f);
+    }
+}
+
 // =============================================================================
 // Store tile from shared memory to global memory
 // =============================================================================
@@ -353,10 +377,9 @@ __device__ __forceinline__ void load_tile_to_shared(const __nv_bfloat16* __restr
                         TypeAdapter<__nv_bfloat16>::to_compute(val.y);
                 } else if (global_row < max_rows) {
                     dst[local_row * BLOCK_COLS + local_col] =
-                        (global_col < max_cols)
-                            ? TypeAdapter<__nv_bfloat16>::to_compute(
-                                  src[global_row * src_stride + global_col])
-                            : 0.0f;
+                        (global_col < max_cols) ? TypeAdapter<__nv_bfloat16>::to_compute(
+                                                      src[global_row * src_stride + global_col])
+                                                : 0.0f;
                     dst[local_row * BLOCK_COLS + local_col + 1] =
                         (global_col + 1 < max_cols)
                             ? TypeAdapter<__nv_bfloat16>::to_compute(
@@ -391,9 +414,8 @@ __device__ __forceinline__ void load_tile_to_shared(const __nv_bfloat16* __restr
             int global_col = col_start + local_col;
 
             if (global_row < max_rows && global_col < max_cols) {
-                dst[local_row * BLOCK_COLS + local_col] =
-                    TypeAdapter<__nv_bfloat16>::to_compute(
-                        src[global_row * src_stride + global_col]);
+                dst[local_row * BLOCK_COLS + local_col] = TypeAdapter<__nv_bfloat16>::to_compute(
+                    src[global_row * src_stride + global_col]);
             } else {
                 dst[local_row * BLOCK_COLS + local_col] = 0.0f;
             }
@@ -587,6 +609,13 @@ struct ForwardTilingConfig {
     static constexpr int BLOCK_M_HD128 = 32;
     static constexpr int BLOCK_N_HD128 = 32;
 
+    // Fallback blocks for GPUs whose dynamic shared memory per block cannot
+    // hold the primary tiles (sm_75 caps opt-in shared memory at 64 KB).
+    static constexpr int BLOCK_M_SMALL = 32;  // head_dim 64 fallback
+    static constexpr int BLOCK_N_SMALL = 32;
+    static constexpr int BLOCK_M_HD128_SMALL = 16;
+    static constexpr int BLOCK_N_HD128_SMALL = 16;
+
     static constexpr int NUM_THREADS = 128;
     static constexpr int WARP_SIZE = 32;
 
@@ -612,13 +641,19 @@ struct BackwardTilingConfig {
     static constexpr int BLOCK_M_HD128 = 16;
     static constexpr int BLOCK_N_HD128 = 32;
 
+    // Fallback blocks for GPUs whose dynamic shared memory per block cannot
+    // hold the primary tiles (sm_75 caps opt-in shared memory at 64 KB).
+    static constexpr int BLOCK_M_SMALL = 32;  // head_dim 32 fallback
+    static constexpr int BLOCK_N_SMALL = 32;
+    static constexpr int BLOCK_N_HD128_SMALL = 16;  // paired with BLOCK_M_HD128
+
     static constexpr int NUM_THREADS = 128;
     static constexpr int WARP_SIZE = 32;
 
     // Q + dO + K + V + S + dQ + L + D
     static constexpr size_t dq_smem_bytes(int hd, int BM, int BN) {
-        return static_cast<size_t>(BM * hd + BM * hd + BN * hd + BN * hd + BM * BN + BM * hd +
-                                   BM + BM) *
+        return static_cast<size_t>(BM * hd + BM * hd + BN * hd + BN * hd + BM * BN + BM * hd + BM +
+                                   BM) *
                sizeof(float);
     }
 

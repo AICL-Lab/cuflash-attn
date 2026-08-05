@@ -328,7 +328,7 @@ If you use CuFlash-Attn in academic work, software benchmarks, or technical blog
   author={{AICL-Lab}},
   year={2024},
   url={https://github.com/AICL-Lab/cuflash-attn},
-  note={Version 0.3.0. Educational CUDA C++ reference implementation of FlashAttention.}
+  note={Version 0.5.0. Educational CUDA C++ reference implementation of FlashAttention.}
 }
 ```
 

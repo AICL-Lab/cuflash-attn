@@ -22,8 +22,8 @@
 
 | 依赖 | 最低版本 | 说明 |
 |------|----------|------|
-| **CUDA Toolkit** | 11.0 | 包含 nvcc 编译器和 CUDA 库 |
-| **CMake** | 3.18 | 构建系统生成器 |
+| **CUDA Toolkit** | 11.2 | 包含 nvcc 编译器和 CUDA 库。CUDA 13.x 移除了 sm_70（Volta），如需 V100 支持请用 CUDA 12.x 构建 |
+| **CMake** | 3.18（preset 需 3.20） | 构建系统生成器 |
 | **C++ 编译器** | C++17 | GCC 7+、Clang 5+、MSVC 2017+ |
 | **Python**（可选） | 3.8+ | 用于 PyTorch 对比测试 |
 | **PyTorch**（可选） | 2.0+ | 用于验证测试 |

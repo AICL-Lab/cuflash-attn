@@ -6,14 +6,14 @@ namespace cuflash {
 // Forward declarations for unified typed launch functions
 template<typename InputT>
 FlashAttentionError launch_flash_attention_forward_typed(const InputT* Q, const InputT* K,
-                                                         const InputT* V, InputT* O, InputT* L,
+                                                         const InputT* V, InputT* O, float* L,
                                                          int batch_size, int num_heads, int seq_len,
                                                          int head_dim, float scale, bool causal,
                                                          cudaStream_t stream);
 
 template<typename InputT>
 FlashAttentionError launch_flash_attention_backward_typed(
-    const InputT* Q, const InputT* K, const InputT* V, const InputT* O, const InputT* L,
+    const InputT* Q, const InputT* K, const InputT* V, const InputT* O, const float* L,
     const InputT* dO, InputT* dQ, InputT* dK, InputT* dV, int batch_size, int num_heads,
     int seq_len, int head_dim, float scale, bool causal, cudaStream_t stream);
 
@@ -97,7 +97,7 @@ FlashAttentionError flash_attention_forward(const float* Q, const float* K, cons
 
 // Forward pass (FP16)
 FlashAttentionError flash_attention_forward(const half* Q, const half* K, const half* V, half* O,
-                                            half* L, int batch_size, int num_heads, int seq_len,
+                                            float* L, int batch_size, int num_heads, int seq_len,
                                             int head_dim, float scale, bool causal,
                                             cudaStream_t stream) {
     FlashAttentionError err =
@@ -112,9 +112,9 @@ FlashAttentionError flash_attention_forward(const half* Q, const half* K, const 
 
 // Forward pass (BF16)
 FlashAttentionError flash_attention_forward(const __nv_bfloat16* Q, const __nv_bfloat16* K,
-                                            const __nv_bfloat16* V, __nv_bfloat16* O,
-                                            __nv_bfloat16* L, int batch_size, int num_heads,
-                                            int seq_len, int head_dim, float scale, bool causal,
+                                            const __nv_bfloat16* V, __nv_bfloat16* O, float* L,
+                                            int batch_size, int num_heads, int seq_len,
+                                            int head_dim, float scale, bool causal,
                                             cudaStream_t stream) {
     FlashAttentionError err =
         validate_common_params(Q, K, V, O, L, batch_size, num_heads, seq_len, head_dim, scale);
@@ -122,9 +122,8 @@ FlashAttentionError flash_attention_forward(const __nv_bfloat16* Q, const __nv_b
         return err;
     }
 
-    return launch_flash_attention_forward_typed<__nv_bfloat16>(Q, K, V, O, L, batch_size,
-                                                               num_heads, seq_len, head_dim, scale,
-                                                               causal, stream);
+    return launch_flash_attention_forward_typed<__nv_bfloat16>(
+        Q, K, V, O, L, batch_size, num_heads, seq_len, head_dim, scale, causal, stream);
 }
 
 // Backward pass (FP32)
@@ -146,7 +145,7 @@ FlashAttentionError flash_attention_backward(const float* Q, const float* K, con
 
 // Backward pass (FP16)
 FlashAttentionError flash_attention_backward(const half* Q, const half* K, const half* V,
-                                             const half* O, const half* L, const half* dO,
+                                             const half* O, const float* L, const half* dO,
                                              half* dQ, half* dK, half* dV, int batch_size,
                                              int num_heads, int seq_len, int head_dim, float scale,
                                              bool causal, cudaStream_t stream) {
@@ -164,7 +163,7 @@ FlashAttentionError flash_attention_backward(const half* Q, const half* K, const
 // Backward pass (BF16)
 FlashAttentionError flash_attention_backward(const __nv_bfloat16* Q, const __nv_bfloat16* K,
                                              const __nv_bfloat16* V, const __nv_bfloat16* O,
-                                             const __nv_bfloat16* L, const __nv_bfloat16* dO,
+                                             const float* L, const __nv_bfloat16* dO,
                                              __nv_bfloat16* dQ, __nv_bfloat16* dK,
                                              __nv_bfloat16* dV, int batch_size, int num_heads,
                                              int seq_len, int head_dim, float scale, bool causal,
@@ -202,7 +201,7 @@ int cuflash_attention_backward_f32(const float* Q, const float* K, const float* 
                                                               head_dim, scale, causal, stream));
 }
 
-int cuflash_attention_forward_f16(const half* Q, const half* K, const half* V, half* O, half* L,
+int cuflash_attention_forward_f16(const half* Q, const half* K, const half* V, half* O, float* L,
                                   int batch_size, int num_heads, int seq_len, int head_dim,
                                   float scale, bool causal, cudaStream_t stream) {
     return static_cast<int>(cuflash::flash_attention_forward(
@@ -210,7 +209,7 @@ int cuflash_attention_forward_f16(const half* Q, const half* K, const half* V, h
 }
 
 int cuflash_attention_backward_f16(const half* Q, const half* K, const half* V, const half* O,
-                                   const half* L, const half* dO, half* dQ, half* dK, half* dV,
+                                   const float* L, const half* dO, half* dQ, half* dK, half* dV,
                                    int batch_size, int num_heads, int seq_len, int head_dim,
                                    float scale, bool causal, cudaStream_t stream) {
     return static_cast<int>(cuflash::flash_attention_backward(Q, K, V, O, L, dO, dQ, dK, dV,
@@ -219,7 +218,7 @@ int cuflash_attention_backward_f16(const half* Q, const half* K, const half* V, 
 }
 
 int cuflash_attention_forward_bf16(const __nv_bfloat16* Q, const __nv_bfloat16* K,
-                                   const __nv_bfloat16* V, __nv_bfloat16* O, __nv_bfloat16* L,
+                                   const __nv_bfloat16* V, __nv_bfloat16* O, float* L,
                                    int batch_size, int num_heads, int seq_len, int head_dim,
                                    float scale, bool causal, cudaStream_t stream) {
     return static_cast<int>(cuflash::flash_attention_forward(
@@ -227,11 +226,10 @@ int cuflash_attention_forward_bf16(const __nv_bfloat16* Q, const __nv_bfloat16* 
 }
 
 int cuflash_attention_backward_bf16(const __nv_bfloat16* Q, const __nv_bfloat16* K,
-                                    const __nv_bfloat16* V, const __nv_bfloat16* O,
-                                    const __nv_bfloat16* L, const __nv_bfloat16* dO,
-                                    __nv_bfloat16* dQ, __nv_bfloat16* dK, __nv_bfloat16* dV,
-                                    int batch_size, int num_heads, int seq_len, int head_dim,
-                                    float scale, bool causal, cudaStream_t stream) {
+                                    const __nv_bfloat16* V, const __nv_bfloat16* O, const float* L,
+                                    const __nv_bfloat16* dO, __nv_bfloat16* dQ, __nv_bfloat16* dK,
+                                    __nv_bfloat16* dV, int batch_size, int num_heads, int seq_len,
+                                    int head_dim, float scale, bool causal, cudaStream_t stream) {
     return static_cast<int>(cuflash::flash_attention_backward(Q, K, V, O, L, dO, dQ, dK, dV,
                                                               batch_size, num_heads, seq_len,
                                                               head_dim, scale, causal, stream));

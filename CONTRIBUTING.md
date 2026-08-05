@@ -6,7 +6,7 @@ CuFlash-Attn is maintained as a **lean CUDA FlashAttention reference implementat
 
 - NVIDIA GPU with Compute Capability 7.0+ for full local validation
 - CUDA Toolkit 12.x
-- CMake 3.18+
+- CMake 3.20+ (presets require 3.20; plain `cmake -B build` works with 3.18+)
 - A C++17-capable compiler
 - Node.js 18+ for documentation work
 
