@@ -1,6 +1,6 @@
 // Tensor-core (WMMA) FlashAttention forward kernel for FP16/BF16.
 //
-// Phase 2 (forward) of docs/en/design/tensor-core-migration.md:
+// Phase 2 (forward) of docs/design/tensor-core-migration.md:
 //   - Q/K/V tiles stay in the input precision in shared memory
 //   - S = Q @ K^T and O += P @ V run on Tensor Cores (m16n16k16, FP32 accum)
 //   - online softmax + FA2 deferred normalization are unchanged (CUDA cores)
