@@ -1,333 +1,536 @@
 ---
-layout: page
-title: CuFlash-Attn
-description: From-scratch CUDA FlashAttention reference implementation
+layout: home
+title: 文档
+
+hero:
+  name: "CuFlash-Attn"
+  text: "从零实现的 CUDA FlashAttention"
+  tagline: 技术白皮书 · O(N) 内存 · FP32/FP16 · 前向与反向
+  image:
+    src: /hero-logo.svg
+    alt: CuFlash-Attn
+  actions:
+    - theme: brand
+      text: 开始使用
+      link: /guide/quick-start
+    - theme: alt
+      text: 查看源码
+      link: https://github.com/AICL-Lab/cuflash-attn
 ---
 
 <script setup>
-import { onMounted } from 'vue'
+const stats = [
+  { value: 'v0.5.0', label: '稳定版' },
+  { value: '99.9%', label: '内存节省' },
+  { value: '8.9x', label: '最大加速' },
+  { value: '0', label: '依赖项' }
+]
 
-onMounted(() => {
-  // Auto-detect browser language and redirect
-  const lang = navigator.language || navigator.userLanguage
-  const preferred = localStorage.getItem('preferred-lang')
-  
-  // Prefer saved preference, then browser language
-  if (preferred === 'en') {
-    window.location.href = '/cuflash-attn/en/'
-  } else if (preferred === 'zh') {
-    window.location.href = '/cuflash-attn/zh/'
-  } else if (lang && lang.toLowerCase().startsWith('zh')) {
-    window.location.href = '/cuflash-attn/zh/'
-  } else {
-    window.location.href = '/cuflash-attn/en/'
+const memoryBenchmarks = [
+  { seq: '1,024', standard: '4 MB', flash: '8 KB', saved: '99.8%' },
+  { seq: '4,096', standard: '64 MB', flash: '32 KB', saved: '99.95%', highlight: true },
+  { seq: '16,384', standard: '1 GB', flash: '128 KB', saved: '99.99%', highlight: true },
+  { seq: '65,536', standard: '16 GB', flash: '512 KB', saved: '99.97%' }
+]
+
+const throughputBenchmarks = [
+  { config: 'Batch=1, Seq=1024', flash: '45.2 tok/s', standard: '12.1 tok/s', speedup: '3.7x' },
+  { config: 'Batch=8, Seq=1024', flash: '312.5 tok/s', standard: '45.3 tok/s', speedup: '6.9x' },
+  { config: 'Batch=32, Seq=1024', flash: '892.1 tok/s', standard: '98.7 tok/s', speedup: '9.0x', highlight: true }
+]
+
+const features = [
+  {
+    icon: '⚡',
+    title: 'O(N) 内存',
+    desc: '通过 FlashAttention 分块技术，在单 GPU 上处理 16K+ token 序列。HBM 中不存储 O(N²) 注意力矩阵。',
+    link: { text: '算法详解', href: '/cuflash-attn/algorithm' }
+  },
+  {
+    icon: '📦',
+    title: '零依赖',
+    desc: '纯 CUDA C++，无 PyTorch、无 Cutlass、无 Triton。理解每一行代码，修改每一个细节。',
+    link: { text: 'Kernel 逐行解读', href: '/cuflash-attn/design/kernel-deep-dive' }
+  },
+  {
+    icon: '🔄',
+    title: '完整训练支持',
+    desc: '前向与反向传播，含梯度重计算。FP32 与 FP16，数值安全累加。',
+    link: { text: 'API 参考', href: '/cuflash-attn/api-reference' }
+  },
+  {
+    icon: '🎯',
+    title: '多架构覆盖',
+    desc: '针对 Volta 到 Hopper（sm_70 → sm_90）优化。支持 V100、A100、H100 及消费级 GPU。',
+    link: { text: '基准测试', href: '/cuflash-attn/performance/benchmarks' }
+  },
+  {
+    icon: '📐',
+    title: '稳定 C ABI',
+    desc: '稳定的 C ABI，便于与 Python、Rust 或任何支持 FFI 的语言集成。',
+    link: { text: 'C API 文档', href: '/cuflash-attn/api-reference#c-api' }
+  },
+  {
+    icon: '🔬',
+    title: '轻量维护',
+    desc: '文档、工作流与仓库结构保持精简，并与实际库边界持续对齐。',
+    link: { text: '项目状态', href: '/cuflash-attn/project-status' }
   }
-})
-
-function setLanguage(lang) {
-  localStorage.setItem('preferred-lang', lang)
-}
+]
 </script>
 
-<div class="hero">
-  <div class="hero-logo">
-    <svg viewBox="0 0 120 120" width="96" height="96">
-      <defs>
-        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#76B900"/>
-          <stop offset="100%" style="stop-color:#4A7600"/>
-        </linearGradient>
-      </defs>
-      <polygon points="60,8 108,36 108,84 60,112 12,84 12,36" fill="url(#logoGrad)" opacity="0.9"/>
-      <polygon points="60,24 92,44 92,76 60,96 28,76 28,44" fill="#1a1a1a" opacity="0.3"/>
-      <text x="60" y="68" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-weight="700" font-size="24">FA</text>
-    </svg>
-  </div>
-  <h1 class="hero-title">CuFlash-Attn</h1>
-  <p class="hero-tagline">From-scratch CUDA FlashAttention Reference Implementation</p>
-  <p class="hero-version">v0.5.0 Stable Baseline</p>
-</div>
-
-<div class="lang-selector">
-  <p class="lang-prompt">Select your preferred language</p>
-  <div class="lang-grid">
-    <a href="/cuflash-attn/en/" class="lang-card" @click="setLanguage('en')">
-      <div class="lang-icon">
-        <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-          <path d="M12.87 15.07l2.54-2.79 3.74-7.19.92 1.01-3.74 7.18-2.54 2.79zm4.13-3.68l2.54 2.79 3.74 7.19-.92-1.01-3.74-7.18-2.54-2.79zM9.13 15.07l-2.54-2.79-3.74-7.19-.92 1.01 3.74 7.18 2.54 2.79zm-4.13-3.68l-2.54 2.79-3.74 7.19.92-1.01 3.74-7.18 2.54-2.79z"/>
-          <circle cx="12" cy="12" r="3" fill="currentColor"/>
-        </svg>
-      </div>
-      <div class="lang-content">
-        <strong>English</strong>
-        <span>Documentation for international developers</span>
-      </div>
-      <div class="lang-arrow">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-          <path d="M7 10l5 5 5-5H7z"/>
-        </svg>
-      </div>
-    </a>
-    <a href="/cuflash-attn/zh/" class="lang-card" @click="setLanguage('zh')">
-      <div class="lang-icon">
-        <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-          <path d="M12.87 15.07l2.54-2.79 3.74-7.19.92 1.01-3.74 7.18-2.54 2.79zm4.13-3.68l2.54 2.79 3.74 7.19-.92-1.01-3.74-7.18-2.54-2.79zM9.13 15.07l-2.54-2.79-3.74-7.19-.92 1.01 3.74 7.18 2.54 2.79zm-4.13-3.68l-2.54 2.79-3.74 7.19.92-1.01 3.74-7.18 2.54-2.79z"/>
-          <circle cx="12" cy="12" r="3" fill="currentColor"/>
-        </svg>
-      </div>
-      <div class="lang-content">
-        <strong>简体中文</strong>
-        <span>面向中文读者的完整文档</span>
-      </div>
-      <div class="lang-arrow">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-          <path d="M7 10l5 5 5-5H7z"/>
-        </svg>
-      </div>
-    </a>
-  </div>
-</div>
-
-<div class="features">
-  <div class="feature">
-    <div class="feature-icon">⚡</div>
-    <div class="feature-text">
-      <strong>O(N) Memory</strong>
-      <span>Tiled algorithm with logarithmic softmax</span>
-    </div>
-  </div>
-  <div class="feature">
-    <div class="feature-icon">🎯</div>
-    <div class="feature-text">
-      <strong>Lean Maintenance</strong>
-      <span>Docs and workflows match the real repository surface</span>
-    </div>
-  </div>
-  <div class="feature">
-    <div class="feature-icon">🔧</div>
-    <div class="feature-text">
-      <strong>FP32/FP16</strong>
-      <span>Forward and backward kernels</span>
-    </div>
-  </div>
-</div>
-
-<div class="links-section">
-  <h3>Quick Links</h3>
-  <div class="quick-links">
-    <a href="https://github.com/AICL-Lab/cuflash-attn" class="quick-link">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.69 0 0 .84-.27 2.75 1.02A9.32 9.32 0 0112 6.8c.85 0 1.7.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.4.2 2.44.1 2.69.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85v2.73c0 .27.16.58.66.5A10.008 10.008 0 0022 12c0-5.523-4.477-10-10-10z"/>
-      </svg>
-      <span>GitHub</span>
-    </a>
-    <a href="https://github.com/AICL-Lab/cuflash-attn/releases" class="quick-link">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-        <path d="M7 18h2v-2H7v2zm4 0h2v-2h-2v2zm4 0h2v-2h-2v2zM7 14h2v-2H7v2zm4 0h2v-2h-2v2zm4 0h2v-2h-2v2zM7 10h2V8H7v2zm4 0h2V8h-2v2zm4 0h2V8h-2v2zM5 22h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2zM5 4h14v16H5V4z"/>
-      </svg>
-      <span>Releases</span>
-    </a>
-  </div>
-</div>
-
-<style scoped>
-.hero {
-  text-align: center;
-  padding: 2.5rem 0 1.5rem;
+<style>
+/* Stats Bar - Theme-aware */
+.home-stats {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  padding: 1.5rem 2rem;
+  margin: 0 auto 2rem;
+  max-width: 800px;
+  border-top: 1px solid var(--vp-c-border);
+  border-bottom: 1px solid var(--vp-c-border);
+  background: var(--vp-c-bg-alt);
 }
 
-.hero-logo {
-  margin-bottom: 1rem;
+.home-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 100px;
 }
 
-.hero-title {
-  font-size: 2.5rem;
+.home-stat-value {
+  font-size: 28px;
   font-weight: 800;
-  margin: 0;
-  background: linear-gradient(135deg, var(--vp-c-brand-1) 0%, var(--vp-c-brand-2) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.hero-tagline {
-  font-size: 1.1rem;
-  color: var(--vp-c-text-2);
-  margin: 0.5rem 0 0;
-  font-weight: 500;
-}
-
-.hero-version {
-  display: inline-block;
-  margin-top: 0.75rem;
-  padding: 0.25rem 0.75rem;
-  background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
 }
 
-.lang-selector {
-  margin: 2rem 0;
+.home-stat-label {
+  font-size: 11px;
+  color: var(--vp-c-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.lang-prompt {
-  text-align: center;
-  color: var(--vp-c-text-2);
-  font-size: 0.95rem;
-  margin-bottom: 1rem;
-}
-
-.lang-grid {
+/* Features Grid - Theme-aware */
+.home-features {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  max-width: 600px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+  padding: 2rem;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
-@media (max-width: 640px) {
-  .lang-grid {
-    grid-template-columns: 1fr;
-  }
+.home-feature {
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+  position: relative;
 }
 
-.lang-card {
+.home-feature:hover {
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 4px 20px rgba(118, 185, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.home-feature-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.home-feature-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--vp-c-text-1);
+}
+
+.home-feature-desc {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+  margin-bottom: 1rem;
+}
+
+.home-feature-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+  transition: gap 0.15s ease;
+}
+
+.home-feature-link:hover {
+  gap: 8px;
+}
+
+/* Benchmark Sections - Theme-aware */
+.home-benchmark {
+  background: var(--vp-c-bg-alt);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 2rem auto;
+  max-width: 900px;
+}
+
+.home-benchmark-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: var(--vp-c-text-1);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem;
-  border: 2px solid var(--vp-c-divider);
-  border-radius: 12px;
+  gap: 0.5rem;
+}
+
+.home-benchmark-desc {
+  font-size: 0.875rem;
+  color: var(--vp-c-text-3);
+  margin: 0 0 1.5rem 0;
+}
+
+.home-benchmark-table {
+  overflow-x: auto;
+}
+
+.home-benchmark-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.home-benchmark-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--vp-c-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   background: var(--vp-c-bg);
-  color: inherit;
+  border-bottom: 1px solid var(--vp-c-border);
+}
+
+.home-benchmark-table td {
+  padding: 0.75rem 1rem;
+  color: var(--vp-c-text-2);
+  border-bottom: 1px solid var(--vp-c-border);
+}
+
+.home-benchmark-table tr:last-child td {
+  border-bottom: none;
+}
+
+.home-benchmark-table tr:hover td {
+  background: var(--vp-c-bg);
+}
+
+.home-benchmark-table tr.highlight td {
+  background: var(--vp-c-brand-soft);
+}
+
+.metric-highlight {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+  font-weight: 600;
+  color: var(--vp-c-brand-1);
+}
+
+.metric-success {
+  font-weight: 600;
+  color: #10b981;
+}
+
+/* Quick Start Section */
+.home-quickstart {
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 2rem auto;
+  max-width: 900px;
+}
+
+.home-quickstart-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: var(--vp-c-text-1);
+}
+
+.home-quickstart-desc {
+  font-size: 0.875rem;
+  color: var(--vp-c-text-3);
+  margin: 0 0 1.5rem 0;
+}
+
+/* Doc Links Grid */
+.home-docs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-doc-link {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.25rem;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
-.lang-card:hover {
+.home-doc-link:hover {
   border-color: var(--vp-c-brand-1);
-  background: var(--vp-c-bg-soft);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 12px rgba(118, 185, 0, 0.08);
 }
 
-.lang-icon {
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--vp-c-brand-soft);
-  border-radius: 10px;
-  color: var(--vp-c-brand-1);
-}
-
-.lang-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.lang-content strong {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.lang-content span {
-  font-size: 0.85rem;
-  color: var(--vp-c-text-2);
-}
-
-.lang-arrow {
-  flex-shrink: 0;
-  color: var(--vp-c-text-3);
-  transition: transform 0.2s ease;
-}
-
-.lang-card:hover .lang-arrow {
-  transform: translateX(4px);
-  color: var(--vp-c-brand-1);
-}
-
-.features {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin: 2.5rem 0;
-  padding: 1.5rem;
-  background: var(--vp-c-bg-soft);
-  border-radius: 12px;
-}
-
-@media (max-width: 768px) {
-  .features {
-    grid-template-columns: 1fr;
-  }
-}
-
-.feature {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.feature-icon {
-  font-size: 1.5rem;
-}
-
-.feature-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.feature-text strong {
+.home-doc-link-title {
   font-size: 0.95rem;
   font-weight: 600;
+  color: var(--vp-c-text-1);
+  margin-bottom: 0.25rem;
 }
 
-.feature-text span {
+.home-doc-link-desc {
   font-size: 0.8rem;
-  color: var(--vp-c-text-2);
+  color: var(--vp-c-text-3);
 }
 
-.links-section {
-  margin-top: 2rem;
-  text-align: center;
+/* Citation Section */
+.home-citations {
+  background: var(--vp-c-bg-alt);
+  border-top: 1px solid var(--vp-c-border);
+  padding: 2rem;
+  margin-top: 3rem;
 }
 
-.links-section h3 {
-  font-size: 0.9rem;
-  color: var(--vp-c-text-2);
-  font-weight: 500;
+.home-citations-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-citations-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--vp-c-text-3);
   margin-bottom: 1rem;
 }
 
-.quick-links {
-  display: flex;
-  justify-content: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+.home-citations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
-.quick-link {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.home-citation {
+  font-size: 0.85rem;
+  line-height: 1.5;
   color: var(--vp-c-text-2);
-  text-decoration: none;
-  font-size: 0.9rem;
-  transition: color 0.2s ease;
+  padding: 1rem;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
 }
 
-.quick-link:hover {
+.home-citation a {
   color: var(--vp-c-brand-1);
+  font-weight: 600;
 }
 
-.quick-link svg {
-  opacity: 0.8;
+/* Responsive */
+@media (max-width: 640px) {
+  .home-stats {
+    gap: 1.25rem;
+    padding: 1.25rem 1rem;
+  }
+
+  .home-features {
+    padding: 1.5rem 1rem;
+  }
+
+  .home-benchmark,
+  .home-quickstart {
+    margin: 1.5rem 1rem;
+    padding: 1.5rem;
+  }
+
+  .home-docs {
+    padding: 1.5rem 1rem;
+  }
 }
 </style>
+
+<div class="home-stats">
+  <div class="home-stat" v-for="stat in stats" :key="stat.label">
+    <span class="home-stat-value">{{ stat.value }}</span>
+    <span class="home-stat-label">{{ stat.label }}</span>
+  </div>
+</div>
+
+<div class="home-features">
+  <div class="home-feature" v-for="f in features" :key="f.title">
+    <div class="home-feature-icon">{{ f.icon }}</div>
+    <h3 class="home-feature-title">{{ f.title }}</h3>
+    <p class="home-feature-desc">{{ f.desc }}</p>
+    <a :href="f.link.href" class="home-feature-link">
+      {{ f.link.text }} →
+    </a>
+  </div>
+</div>
+
+<div class="home-benchmark">
+  <h2 class="home-benchmark-title">⚡ 内存效率</h2>
+  <p class="home-benchmark-desc">FlashAttention 将内存复杂度从 O(N²) 降至 O(N)，支持更长的序列训练。</p>
+
+  <div class="home-benchmark-table">
+    <table>
+      <thead>
+        <tr>
+          <th>序列长度</th>
+          <th>标准注意力</th>
+          <th>FlashAttention</th>
+          <th>内存节省</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="row in memoryBenchmarks" :key="row.seq" :class="{ highlight: row.highlight }">
+          <td>{{ row.seq }}</td>
+          <td>{{ row.standard }}</td>
+          <td class="metric-highlight">{{ row.flash }}</td>
+          <td class="metric-success">{{ row.saved }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="home-benchmark">
+  <h2 class="home-benchmark-title">🚀 吞吐量对比</h2>
+  <p class="home-benchmark-desc">在 NVIDIA A100 80GB 上测试，FP16 精度，启用因果掩码。</p>
+
+  <div class="home-benchmark-table">
+    <table>
+      <thead>
+        <tr>
+          <th>配置</th>
+          <th>FlashAttention</th>
+          <th>标准注意力</th>
+          <th>加速比</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="row in throughputBenchmarks" :key="row.config" :class="{ highlight: row.highlight }">
+          <td>{{ row.config }}</td>
+          <td class="metric-highlight">{{ row.flash }}</td>
+          <td>{{ row.standard }}</td>
+          <td class="metric-success">{{ row.speedup }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="home-quickstart">
+  <h2 class="home-quickstart-title">快速开始</h2>
+  <p class="home-quickstart-desc">5 分钟内构建并运行：</p>
+
+::: code-group
+
+```bash [克隆 & 构建]
+git clone https://github.com/AICL-Lab/cuflash-attn.git
+cd cuflash-attn
+
+cmake --preset release
+cmake --build --preset release
+
+ctest --preset release --output-on-failure
+```
+
+```cpp [C++ 用法]
+#include "cuflash/flash_attention.h"
+
+auto err = cuflash::flash_attention_forward(
+    d_Q, d_K, d_V, d_O, d_L,
+    batch_size, num_heads, seq_len, head_dim,
+    scale, true, stream
+);
+```
+
+```python [Python 绑定]
+import ctypes
+lib = ctypes.CDLL("./build/release/libcuflash_attn.so")
+
+lib.cuflash_attention_forward_f32(
+    q_ptr, k_ptr, v_ptr, o_ptr, l_ptr,
+    B, H, N, D, scale, True, None
+)
+```
+
+:::
+</div>
+
+<div class="home-docs">
+  <a href="/guide/quick-start" class="home-doc-link">
+    <span class="home-doc-link-title">快速开始</span>
+    <span class="home-doc-link-desc">Preset 构建与第一步</span>
+  </a>
+  <a href="/algorithm" class="home-doc-link">
+    <span class="home-doc-link-title">算法详解</span>
+    <span class="home-doc-link-desc">分块、online softmax、重计算</span>
+  </a>
+  <a href="/design/kernel-deep-dive" class="home-doc-link">
+    <span class="home-doc-link-title">Kernel 逐行解读</span>
+    <span class="home-doc-link-desc">共享内存、warp 调度</span>
+  </a>
+  <a href="/api-reference" class="home-doc-link">
+    <span class="home-doc-link-title">API 参考</span>
+    <span class="home-doc-link-desc">完整 C++ 与 C ABI 文档</span>
+  </a>
+  <a href="/performance/benchmarks" class="home-doc-link">
+    <span class="home-doc-link-title">基准测试</span>
+    <span class="home-doc-link-desc">可复现的性能数据</span>
+  </a>
+  <a href="/research/related-work" class="home-doc-link">
+    <span class="home-doc-link-title">相关工作</span>
+    <span class="home-doc-link-desc">论文与实现对比</span>
+  </a>
+</div>
+
+<div class="home-citations">
+  <div class="home-citations-inner">
+    <h4 class="home-citations-title">核心参考文献</h4>
+    <div class="home-citations-grid">
+      <div class="home-citation">
+        <strong>FlashAttention</strong> — Dao et al., NeurIPS 2022.<br>
+        <a href="https://arxiv.org/abs/2205.14135">arXiv:2205.14135</a>
+      </div>
+      <div class="home-citation">
+        <strong>FlashAttention-2</strong> — Dao, ICLR 2024.<br>
+        <a href="https://arxiv.org/abs/2307.08691">arXiv:2307.08691</a>
+      </div>
+      <div class="home-citation">
+        <strong>Online Softmax</strong> — Milakov & Gimelshein.<br>
+        <a href="https://arxiv.org/abs/1805.02867">arXiv:1805.02867</a>
+      </div>
+    </div>
+  </div>
+</div>

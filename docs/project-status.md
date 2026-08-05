@@ -21,10 +21,10 @@ CuFlash-Attn 当前维护为 **稳定的 v0.5.0 参考实现**，适合学习、
 
 ## 权威入口
 
-- [快速开始](/zh/guide/quick-start)
-- [API 参考](/zh/api-reference)
-- [系统架构](/zh/architecture)
-- [仓库 README](https://github.com/AICL-Lab/cuflash-attn/blob/master/README.zh-CN.md)
+- [快速开始](/guide/quick-start)
+- [API 参考](/api-reference)
+- [系统架构](/architecture)
+- [仓库 README](https://github.com/AICL-Lab/cuflash-attn/blob/master/README.md)
 - [CHANGELOG.md](https://github.com/AICL-Lab/cuflash-attn/blob/master/CHANGELOG.md)
 
 ## 验证边界

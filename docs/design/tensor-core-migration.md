@@ -21,7 +21,7 @@ softmax/`P@V` 段更是**一个线程包办一整行 query**（`src/forward/flas
 优化之前，先让差距可见、可复现：
 
 1. 在目标 GPU 上跑 `benchmarks/bench_flash_attention.cu`（现已报告 `TFLOP/s` 与 `HBM GB/s`），
-   把数字连同确切的设备/驱动/CUDA 版本记录到 `docs/zh/performance/benchmarks.md`。
+   把数字连同确切的设备/驱动/CUDA 版本记录到 `docs/performance/benchmarks.md`。
 2. 加入朴素 materialized 基线（benchmark 里已有）以及相同形状下官方 `flash-attn` / PyTorch SDPA 的数字。
 3. 用 Nsight Compute 剖析一次前向 launch，记录实测 occupancy、SM 吞吐、内存吞吐——
    判断阶段 1 和阶段 2 哪个收益更大。

@@ -86,6 +86,6 @@ int main() {
 
 ## 下一步
 
-- 查看 [API 参考](/zh/api-reference)
-- 阅读 [算法详解](/zh/algorithm)
-- 了解 [构建选项](/zh/building)
+- 查看 [API 参考](/api-reference)
+- 阅读 [算法详解](/algorithm)
+- 了解 [构建选项](/building)
