@@ -14,7 +14,9 @@
 
 ## 🎯 项目简介
 
-CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育学习**、**研究实验**和**生产集成**而优化。
+CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，用于教育学习、研究实验和轻量集成。
+
+在五仓学习路径中，本仓库负责 CUDA C++ FlashAttention 前向/反向的专项深挖；CUDA 基础、Triton 实现、完整推理运行时和 Serving 控制面分别由其他主仓承担。整体顺序见 [`cuda-kernel-academy/LEARNING_PATH.md`](https://github.com/AICL-Lab/cuda-kernel-academy/blob/master/LEARNING_PATH.md)。
 
 ### 项目状态
 
@@ -29,7 +31,7 @@ CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育
 |------|----------|
 | 📚 **学习 FlashAttention** | 清晰、文档完善的 CUDA 内核，逐步的算法实现 |
 | 🔬 **研究与实验** | 修改注意力机制，无需复杂的框架依赖 |
-| 🚀 **生产就绪** | C++ API 配合 C ABI 绑定，通过 ctypes 无缝集成 Python |
+| 🔧 **便于集成** | C++ API 配合 C ABI 绑定，可通过 ctypes 接入 Python |
 | ⚡ **GPU 优化** | 多架构支持，从 V100 (sm_70) 到 H100 (sm_90) |
 
 ---
@@ -38,8 +40,8 @@ CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育
 
 | 特性 | 说明 |
 |------|------|
-| ⚡ **O(N) 内存** | 线性内存复杂度，相比标准注意力的 O(N²) — 支持 16K+ 序列 |
-| 🔢 **双精度支持** | FP32 & FP16，前向和反向传播完整支持 |
+| ⚡ **O(N) 辅助内存** | 不物化完整 O(N²) 注意力矩阵 |
+| 🔢 **多精度支持** | FP32、FP16、BF16 的前向和反向路径 |
 | 🔁 **完整训练** | 完整的前向/反向传播，包含梯度计算 |
 | 🎭 **因果掩码** | 内置自回归模型支持（GPT 风格） |
 | 🔧 **易于集成** | 简洁的 C++ API + C ABI，便于 Python ctypes 集成 |
@@ -57,7 +59,7 @@ CuFlash-Attn 是一个**从零实现的 FlashAttention 算法**，专为**教育
 | **无需框架依赖** | ✅ 是 | ❌ PyTorch | ❌ PyTorch | ❌ PyTorch/Cutlass |
 | **Python 绑定** | ✅ ctypes | ✅ 原生 | ✅ 原生 | ✅ PyTorch |
 | **训练支持** | ✅ 完整 | ✅ 完整 | ✅ 完整 | ✅ 完整 |
-| **BF16 支持** | ⚠️ 即将推出 | ✅ 是 | ✅ 是 | ✅ 是 |
+| **BF16 支持** | ✅ 是 | ✅ 是 | ✅ 是 | ✅ 是 |
 
 > **选择 CuFlash-Attn 的场景**：希望理解、修改或嵌入 FlashAttention，同时避免繁重的依赖。
 
@@ -209,24 +211,7 @@ print(f"输出形状: {O.shape}, 平均值: {O.mean().item():.4f}")
 
 ## 📊 性能
 
-### 内存效率
-
-| 序列长度 | 标准 Attention | FlashAttention | **节省** |
-|---------|---------------|----------------|---------|
-| 1,024 | 4 MB | 8 KB | **99.8%** |
-| 4,096 | 64 MB | 32 KB | **99.95%** |
-| 16,384 | 1 GB | 128 KB | **99.99%** |
-
-### 时间性能（A100-40GB，FP16，Batch=8，Heads=16）
-
-| 序列长度 | 标准注意力 (ms) | CuFlash-Attn (ms) | 加速比 |
-|---------|----------------|-------------------|--------|
-| 1,024 | 2.45 | 0.38 | **6.4x** |
-| 4,096 | 12.8 | 1.52 | **8.4x** |
-| 8,192 | 52.3 | 5.86 | **8.9x** |
-| 16,384 | 显存溢出 | 23.4 | **∞** |
-
-> 基准测试采用因果掩码。测试方法详见 [benchmarks/](benchmarks/)。
+FlashAttention 通过分块与在线 softmax 避免物化完整注意力矩阵。实际延迟、吞吐和显存收益取决于 GPU、CUDA、dtype、形状和 causal 模式；仓库不维护无法持续复测的固定性能数字，请在目标硬件上运行自带 benchmark。
 
 ### 运行基准测试
 
